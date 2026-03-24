@@ -768,8 +768,9 @@ if __name__ == '__main__':
     conn.commit()
     conn.close()
     
-    print("✅ Ustoz Yordamchi Backend ishga tushdi: http://localhost:5000")
-    app.run(debug=True, port=5000)
+    print("✅ Ustoz Yordamchi Backend ishga tushdi: http://localhost:8080")
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
 
 # ===== AI REVIEW (calls Anthropic API) =====
 @app.route('/api/ai-review', methods=['POST'])
