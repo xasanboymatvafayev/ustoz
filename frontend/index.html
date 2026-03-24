@@ -1525,6 +1525,22 @@ async function renderMentorDashboard() {
   } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
 }
 
+// Admin login
+const response = await fetch(`${API}/auth/admin-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "sonnet123" })
+});
+const data = await response.json();
+const token = data.token;
+
+// Protected API chaqirish
+const res = await fetch(`${API}/admin/stats`, {
+    headers: { "Authorization": `Bearer ${token}` }
+});
+const stats = await res.json();
+console.log(stats);
+
 async function renderMentorGroups() {
   const c = el('mentor-content');
   try {
