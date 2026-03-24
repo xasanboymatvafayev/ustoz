@@ -766,11 +766,10 @@ def seed_data():
             conn.execute('INSERT INTO groups (id, name) VALUES (?, ?)', (str(uuid.uuid4()), g))
     conn.commit()
     conn.close()
-seed_data() 
-init_db()
 
 if __name__ == '__main__':
-
+    init_db()
+    seed_data() 
     
     print("✅ Ustoz Yordamchi Backend ishga tushdi: http://localhost:8080")
     port = int(os.environ.get("PORT", 8080))
