@@ -1,0 +1,2332 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ustoz Yordamchi AI — IT Park</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/js/all.min.js" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --bg2: #0f1527;
+  --bg3: #151d35;
+  --card: #1a2340;
+  --card2: #1e2845;
+  --border: rgba(99,179,255,0.12);
+  --border2: rgba(99,179,255,0.22);
+  --accent: #4f8ef7;
+  --accent2: #7eb3ff;
+  --accent3: #a5c8ff;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --purple: #a78bfa;
+  --text: #e8eeff;
+  --text2: #8fa3cc;
+  --text3: #5a7099;
+  --glow: rgba(79,142,247,0.15);
+  --radius: 14px;
+  --radius2: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow2: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ---- UTILS ---- */
+.hidden { display:none!important; }
+.flex { display:flex; }
+.flex-col { flex-direction:column; }
+.items-center { align-items:center; }
+.justify-center { justify-content:center; }
+.justify-between { justify-content:space-between; }
+.gap-1 { gap:8px; }
+.gap-2 { gap:16px; }
+.gap-3 { gap:24px; }
+.w-full { width:100%; }
+.text-sm { font-size:13px; }
+.text-xs { font-size:11px; }
+.mono { font-family:'JetBrains Mono',monospace; }
+.mt-1 { margin-top:8px; }
+.mt-2 { margin-top:16px; }
+.mt-3 { margin-top:24px; }
+
+/* ---- SCROLLBAR ---- */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--bg2); }
+::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
+
+/* ---- LOADING SCREEN ---- */
+#loading-screen {
+  position:fixed; inset:0; background:var(--bg); z-index:9999;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px;
+}
+.loader-logo {
+  font-size:48px; font-weight:700;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.loader-bar {
+  width:200px; height:3px; background:var(--bg3); border-radius:99px; overflow:hidden;
+}
+.loader-fill {
+  height:100%; background:linear-gradient(90deg, var(--accent), var(--purple));
+  animation: load 1.5s ease forwards;
+}
+@keyframes load { from{width:0} to{width:100%} }
+
+/* ---- BUTTONS ---- */
+.btn {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 20px; border-radius:var(--radius2); border:none;
+  font-family:inherit; font-size:14px; font-weight:500;
+  cursor:pointer; transition:all 0.2s; text-decoration:none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #3a7bd5);
+  color:#fff;
+  box-shadow: 0 4px 16px rgba(79,142,247,0.3);
+}
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(79,142,247,0.4); }
+.btn-secondary {
+  background:var(--card2); color:var(--text2); border:1px solid var(--border);
+}
+.btn-secondary:hover { background:var(--bg3); color:var(--text); border-color:var(--border2); }
+.btn-danger { background:rgba(248,113,113,0.15); color:var(--red); border:1px solid rgba(248,113,113,0.3); }
+.btn-danger:hover { background:rgba(248,113,113,0.25); }
+.btn-success { background:rgba(52,211,153,0.15); color:var(--green); border:1px solid rgba(52,211,153,0.3); }
+.btn-success:hover { background:rgba(52,211,153,0.25); }
+.btn-sm { padding:6px 14px; font-size:12px; }
+.btn-full { width:100%; justify-content:center; padding:13px; }
+.btn-icon { padding:8px; border-radius:8px; }
+
+/* ---- INPUTS ---- */
+.input-group { display:flex; flex-direction:column; gap:6px; }
+.input-label { font-size:12px; color:var(--text2); font-weight:500; letter-spacing:0.5px; text-transform:uppercase; }
+.input {
+  background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius2);
+  padding:12px 14px; color:var(--text); font-family:inherit; font-size:14px;
+  transition:all 0.2s; outline:none; width:100%;
+}
+.input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+.input::placeholder { color:var(--text3); }
+.input-icon-wrap { position:relative; }
+.input-icon-wrap .input { padding-left:40px; }
+.input-icon-wrap .ico { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:14px; }
+textarea.input { resize:vertical; min-height:80px; }
+select.input { cursor:pointer; }
+
+/* ---- CARDS ---- */
+.card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px;
+}
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.card-title { font-size:15px; font-weight:600; color:var(--text); }
+
+/* ---- STAT CARDS ---- */
+.stat-card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px; display:flex; align-items:center; gap:16px;
+}
+.stat-icon {
+  width:48px; height:48px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+}
+.stat-value { font-size:28px; font-weight:700; line-height:1; }
+.stat-label { font-size:12px; color:var(--text2); margin-top:4px; }
+
+/* ---- BADGE ---- */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600;
+}
+.badge-blue { background:rgba(79,142,247,0.15); color:var(--accent2); }
+.badge-green { background:rgba(52,211,153,0.15); color:var(--green); }
+.badge-red { background:rgba(248,113,113,0.15); color:var(--red); }
+.badge-yellow { background:rgba(251,191,36,0.15); color:var(--yellow); }
+.badge-purple { background:rgba(167,139,250,0.15); color:var(--purple); }
+
+/* ---- TOAST ---- */
+#toast-container {
+  position:fixed; top:20px; right:20px; z-index:99999;
+  display:flex; flex-direction:column; gap:10px; pointer-events:none;
+}
+.toast {
+  background:var(--card2); border:1px solid var(--border2);
+  border-radius:var(--radius2); padding:14px 18px;
+  display:flex; align-items:center; gap:12px;
+  animation:slideIn 0.3s ease; min-width:280px; max-width:360px;
+  box-shadow:var(--shadow); pointer-events:auto;
+}
+.toast.success { border-left:3px solid var(--green); }
+.toast.error { border-left:3px solid var(--red); }
+.toast.info { border-left:3px solid var(--accent); }
+@keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+.toast-icon { font-size:16px; }
+.toast.success .toast-icon { color:var(--green); }
+.toast.error .toast-icon { color:var(--red); }
+.toast.info .toast-icon { color:var(--accent); }
+.toast-msg { font-size:13px; color:var(--text); flex:1; }
+
+/* ---- MODAL ---- */
+.modal-backdrop {
+  position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  backdrop-filter:blur(4px);
+}
+.modal {
+  background:var(--card); border:1px solid var(--border2); border-radius:var(--radius);
+  padding:28px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-title { font-size:18px; font-weight:700; margin-bottom:20px; }
+.modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+/* ============================================
+   LOGIN PAGE
+============================================ */
+#login-page {
+  min-height:100vh;
+  background:var(--bg);
+  position:relative; overflow:hidden;
+}
+.login-bg {
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse at 20% 50%, rgba(79,142,247,0.08) 0%, transparent 60%),
+             radial-gradient(ellipse at 80% 20%, rgba(167,139,250,0.06) 0%, transparent 50%);
+}
+.login-grid {
+  position:absolute; inset:0; opacity:0.03;
+  background-image:linear-gradient(var(--accent) 1px, transparent 1px),
+                   linear-gradient(90deg, var(--accent) 1px, transparent 1px);
+  background-size:40px 40px;
+}
+.login-container {
+  position:relative; z-index:1; display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:20px;
+}
+.login-box {
+  width:100%; max-width:440px;
+}
+.login-logo {
+  text-align:center; margin-bottom:32px;
+}
+.login-logo-icon {
+  width:64px; height:64px; border-radius:18px; margin:0 auto 12px;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+  box-shadow:0 8px 32px rgba(79,142,247,0.4);
+}
+.login-logo h1 { font-size:22px; font-weight:700; }
+.login-logo p { font-size:13px; color:var(--text2); margin-top:4px; }
+
+.login-tabs {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:4px;
+  background:var(--bg2); padding:4px; border-radius:12px; margin-bottom:24px;
+}
+.login-tab {
+  padding:10px 8px; border-radius:8px; border:none; background:transparent;
+  color:var(--text2); font-family:inherit; font-size:12px; font-weight:500;
+  cursor:pointer; transition:all 0.2s; text-align:center; display:flex;
+  align-items:center; justify-content:center; gap:6px;
+}
+.login-tab.active {
+  background:var(--card); color:var(--text);
+  box-shadow:var(--shadow2);
+}
+
+.login-panel { display:flex; flex-direction:column; gap:16px; }
+
+.admin-key-btn {
+  position:fixed; bottom:24px; right:24px;
+  width:44px; height:44px; border-radius:50%; border:none;
+  background:var(--bg3); color:var(--text3); font-size:16px;
+  cursor:pointer; transition:all 0.2s; z-index:10;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--border);
+}
+.admin-key-btn:hover { background:var(--card); color:var(--text2); }
+
+.divider {
+  display:flex; align-items:center; gap:12px; color:var(--text3); font-size:12px;
+}
+.divider::before,.divider::after {
+  content:''; flex:1; height:1px; background:var(--border);
+}
+
+/* ============================================
+   MAIN LAYOUT
+============================================ */
+#app { display:flex; min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  width:240px; flex-shrink:0;
+  background:var(--bg2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; height:100vh; position:sticky; top:0;
+}
+.sidebar-logo {
+  padding:20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:12px;
+}
+.sidebar-logo-icon {
+  width:36px; height:36px; border-radius:10px;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.sidebar-logo-text { font-size:14px; font-weight:700; }
+.sidebar-logo-sub { font-size:10px; color:var(--text3); }
+
+.sidebar-nav { flex:1; padding:12px 8px; overflow-y:auto; }
+.nav-group-title {
+  font-size:10px; color:var(--text3); font-weight:600; letter-spacing:1px;
+  text-transform:uppercase; padding:8px 12px 4px;
+}
+.nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:10px; border:none;
+  background:transparent; color:var(--text2); font-family:inherit;
+  font-size:13px; font-weight:500; cursor:pointer;
+  transition:all 0.15s; width:100%; text-align:left;
+  text-decoration:none; margin-bottom:2px;
+}
+.nav-item:hover { background:var(--bg3); color:var(--text); }
+.nav-item.active { background:rgba(79,142,247,0.12); color:var(--accent2); }
+.nav-item .ico { width:16px; text-align:center; flex-shrink:0; }
+
+.sidebar-footer {
+  padding:12px 8px; border-top:1px solid var(--border);
+}
+.user-info {
+  display:flex; align-items:center; gap:10px; padding:10px;
+  border-radius:10px; background:var(--bg3);
+}
+.user-avatar {
+  width:34px; height:34px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; flex-shrink:0;
+}
+.user-name { font-size:12px; font-weight:600; }
+.user-role { font-size:10px; color:var(--text3); }
+
+/* MAIN CONTENT */
+.main-content { flex:1; display:flex; flex-direction:column; min-width:0; }
+.topbar {
+  height:60px; border-bottom:1px solid var(--border); background:var(--bg2);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px; flex-shrink:0;
+}
+.topbar-title { font-size:16px; font-weight:600; }
+.page-content { flex:1; padding:24px; overflow-y:auto; }
+
+/* ============================================
+   DASHBOARD
+============================================ */
+.stats-grid {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px;
+  margin-bottom:24px;
+}
+.groups-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px;
+}
+.group-card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px; cursor:pointer; transition:all 0.2s;
+}
+.group-card:hover { border-color:var(--border2); transform:translateY(-2px); box-shadow:var(--shadow); }
+.group-icon {
+  width:44px; height:44px; border-radius:12px; margin-bottom:12px;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  display:flex; align-items:center; justify-content:center; font-size:20px;
+}
+.group-name { font-size:16px; font-weight:600; margin-bottom:4px; }
+.group-meta { font-size:12px; color:var(--text2); }
+
+/* ============================================
+   GROUP DETAIL
+============================================ */
+.group-tabs {
+  display:flex; gap:4px; background:var(--bg2); padding:4px;
+  border-radius:12px; margin-bottom:20px;
+}
+.group-tab {
+  flex:1; padding:10px; border-radius:8px; border:none;
+  background:transparent; color:var(--text2); font-family:inherit;
+  font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.group-tab.active { background:var(--card); color:var(--text); }
+
+/* TASKS */
+.task-card {
+  background:var(--card2); border:1px solid var(--border); border-radius:var(--radius2);
+  padding:16px; margin-bottom:12px;
+}
+.task-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.task-title { font-size:14px; font-weight:600; }
+.task-desc { font-size:12px; color:var(--text2); margin-top:6px; }
+.task-deadline { font-size:11px; color:var(--text3); margin-top:8px; display:flex; align-items:center; gap:4px; }
+.task-deadline.urgent { color:var(--red); }
+
+/* CHAT */
+.chat-container { display:flex; flex-direction:column; height:calc(100vh - 200px); }
+.chat-messages {
+  flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px;
+  background:var(--bg); border-radius:var(--radius); border:1px solid var(--border);
+}
+.message { display:flex; gap:10px; }
+.message.mine { flex-direction:row-reverse; }
+.msg-avatar {
+  width:32px; height:32px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; background:var(--card2);
+}
+.message.mine .msg-avatar { background:linear-gradient(135deg, var(--accent), var(--purple)); }
+.msg-bubble {
+  background:var(--card2); border-radius:12px; border:1px solid var(--border);
+  padding:10px 14px; max-width:70%;
+}
+.message.mine .msg-bubble { background:rgba(79,142,247,0.15); border-color:rgba(79,142,247,0.3); }
+.msg-sender { font-size:10px; color:var(--text3); margin-bottom:4px; }
+.msg-text { font-size:13px; }
+.msg-time { font-size:10px; color:var(--text3); margin-top:4px; }
+.chat-input-area {
+  display:flex; gap:8px; margin-top:12px;
+}
+.chat-input-area .input { flex:1; }
+
+/* SCHEDULE TABLE */
+.schedule-table { width:100%; border-collapse:collapse; }
+.schedule-table th {
+  padding:10px 14px; background:var(--bg2); border:1px solid var(--border);
+  font-size:12px; font-weight:600; color:var(--text2); text-align:left;
+}
+.schedule-table td {
+  padding:10px 14px; border:1px solid var(--border); font-size:13px;
+}
+.schedule-table tr:hover td { background:var(--bg2); }
+.done-cell {
+  display:flex; align-items:center; justify-content:center;
+}
+.done-btn {
+  padding:4px 12px; border-radius:6px; border:none; font-size:11px; font-weight:600; cursor:pointer;
+}
+.done-btn.done { background:rgba(52,211,153,0.15); color:var(--green); }
+.done-btn.not-done { background:rgba(248,113,113,0.15); color:var(--red); }
+
+/* STUDENTS TABLE */
+.table { width:100%; border-collapse:collapse; }
+.table th {
+  padding:10px 14px; background:var(--bg2); border-bottom:1px solid var(--border);
+  font-size:11px; font-weight:600; color:var(--text3); text-align:left; text-transform:uppercase; letter-spacing:0.5px;
+}
+.table td { padding:12px 14px; border-bottom:1px solid var(--border); font-size:13px; }
+.table tr:hover td { background:rgba(255,255,255,0.02); }
+.table tr:last-child td { border-bottom:none; }
+
+/* AI FEEDBACK */
+.ai-feedback {
+  background:linear-gradient(135deg, rgba(79,142,247,0.08), rgba(167,139,250,0.08));
+  border:1px solid rgba(79,142,247,0.2); border-radius:var(--radius2);
+  padding:16px; margin-top:12px;
+}
+.ai-feedback-title {
+  font-size:11px; font-weight:600; color:var(--accent2); margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.ai-feedback-text { font-size:12px; color:var(--text2); line-height:1.6; }
+
+/* CALENDAR */
+.calendar-grid {
+  display:grid; grid-template-columns:repeat(7,1fr); gap:4px;
+}
+.cal-header { font-size:11px; color:var(--text3); text-align:center; padding:8px 4px; font-weight:600; }
+.cal-day {
+  aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  font-size:12px; cursor:pointer; transition:all 0.15s; position:relative;
+}
+.cal-day:hover { background:var(--bg3); }
+.cal-day.today { background:rgba(79,142,247,0.2); color:var(--accent2); font-weight:700; }
+.cal-day.has-event::after {
+  content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
+  width:4px; height:4px; border-radius:50%; background:var(--accent);
+}
+.cal-day.other-month { color:var(--text3); }
+
+/* LEADERBOARD */
+.leaderboard-item {
+  display:flex; align-items:center; gap:14px;
+  padding:12px 16px; border-radius:10px; background:var(--card2);
+  border:1px solid var(--border); margin-bottom:8px;
+}
+.lb-rank { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+.lb-rank.gold { background:rgba(251,191,36,0.2); color:var(--yellow); }
+.lb-rank.silver { background:rgba(167,167,167,0.2); color:#aaa; }
+.lb-rank.bronze { background:rgba(205,127,50,0.2); color:#cd7f32; }
+.lb-rank.normal { background:var(--bg3); color:var(--text3); }
+.lb-name { flex:1; font-size:13px; font-weight:500; }
+.lb-score { font-size:14px; font-weight:700; color:var(--accent2); }
+
+/* CODE BLOCK */
+.code-block {
+  background:var(--bg); border:1px solid var(--border); border-radius:8px;
+  padding:14px; font-family:'JetBrains Mono',monospace; font-size:12px;
+  color:var(--text2); overflow-x:auto; margin-top:8px;
+  line-height:1.6;
+}
+
+/* FORM GRID */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align:center; padding:48px 20px; color:var(--text3);
+}
+.empty-state i { font-size:48px; margin-bottom:16px; opacity:0.3; }
+.empty-state p { font-size:14px; }
+
+/* BACK BTN */
+.back-btn {
+  display:inline-flex; align-items:center; gap:8px;
+  color:var(--text2); font-size:13px; cursor:pointer;
+  padding:6px 0; margin-bottom:16px; background:none; border:none;
+  font-family:inherit; transition:color 0.15s;
+}
+.back-btn:hover { color:var(--text); }
+
+/* PROGRESS BAR */
+.progress { height:4px; background:var(--bg3); border-radius:99px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:99px; background:linear-gradient(90deg, var(--accent), var(--purple)); transition:width 0.3s; }
+
+/* SWITCH */
+.switch { position:relative; display:inline-block; width:44px; height:24px; }
+.switch input { opacity:0; width:0; height:0; }
+.slider {
+  position:absolute; inset:0; background:var(--bg3); border-radius:99px; cursor:pointer; transition:0.3s;
+}
+.slider:before {
+  content:''; position:absolute; width:18px; height:18px; border-radius:50%;
+  left:3px; top:3px; background:#fff; transition:0.3s;
+}
+input:checked + .slider { background:var(--accent); }
+input:checked + .slider:before { transform:translateX(20px); }
+
+/* PROFILE SECTION */
+.profile-header {
+  display:flex; align-items:center; gap:20px; padding:24px;
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:24px;
+}
+.profile-avatar-big {
+  width:72px; height:72px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), var(--purple));
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; font-weight:700; flex-shrink:0;
+}
+.profile-name { font-size:20px; font-weight:700; }
+.profile-role { font-size:13px; color:var(--text2); margin-top:4px; }
+</style>
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loader-logo">UY AI</div>
+  <div style="color:var(--text2);font-size:13px;">Ustoz Yordamchi yuklanmoqda...</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+</div>
+
+<!-- ADMIN KEY BTN -->
+<button class="admin-key-btn hidden" id="admin-key-btn" onclick="showAdminLogin()" title="Admin panel">
+  <i class="fas fa-key"></i>
+</button>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div id="login-page" class="hidden">
+  <div class="login-bg"></div>
+  <div class="login-grid"></div>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="login-logo-icon">🎓</div>
+        <h1>Ustoz Yordamchi AI</h1>
+        <p>IT Park — O'quv Markazi Platformasi</p>
+      </div>
+      
+      <div class="login-tabs">
+        <button class="login-tab active" onclick="switchLoginTab('student')" id="tab-student">
+          <i class="fas fa-user"></i> Kirish
+        </button>
+        <button class="login-tab" onclick="switchLoginTab('register')" id="tab-register">
+          <i class="fas fa-user-plus"></i> Ro'yxat
+        </button>
+        <button class="login-tab" onclick="switchLoginTab('mentor')" id="tab-mentor">
+          <i class="fas fa-chalkboard-teacher"></i> Mentor
+        </button>
+      </div>
+
+      <!-- Student Login -->
+      <div id="panel-student" class="login-panel">
+        <div class="input-group">
+          <label class="input-label">Email</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-envelope ico"></i>
+            <input class="input" type="email" id="s-email" placeholder="email@example.com">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Parol</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-lock ico"></i>
+            <input class="input" type="password" id="s-pass" placeholder="••••••••">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="studentLogin()">
+          <i class="fas fa-sign-in-alt"></i> Kirish
+        </button>
+        <div class="divider">yoki</div>
+        <button class="btn btn-secondary btn-full" onclick="switchLoginTab('forgot')">
+          <i class="fas fa-key"></i> Parolni unutdingizmi?
+        </button>
+      </div>
+
+      <!-- Register -->
+      <div id="panel-register" class="login-panel hidden">
+        <div id="reg-step1">
+          <div class="input-group">
+            <label class="input-label">Login</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-at ico"></i>
+              <input class="input" type="text" id="r-login" placeholder="user123">
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">Ism Familya</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-user ico"></i>
+              <input class="input" type="text" id="r-name" placeholder="Ali Valiyev">
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">Telefon Raqam</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-phone ico"></i>
+              <input class="input" type="tel" id="r-phone" placeholder="+998901234567">
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">Email</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-envelope ico"></i>
+              <input class="input" type="email" id="r-email" placeholder="email@example.com">
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">Guruh Nomi</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-users ico"></i>
+              <input class="input" type="text" id="r-group" placeholder="Python-1, Django-1...">
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:12px">
+            <label class="input-label">Parol</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-lock ico"></i>
+              <input class="input" type="password" id="r-pass" placeholder="Kuchli parol kiriting">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="startRegister()">
+            <i class="fas fa-arrow-right"></i> Davom etish
+          </button>
+        </div>
+        <div id="reg-step2" class="hidden">
+          <div style="text-align:center; margin-bottom:20px;">
+            <div style="font-size:36px; margin-bottom:8px;">📧</div>
+            <p style="font-size:14px; color:var(--text2);">Emailingizga tasdiqlash kodi yuborildi</p>
+            <p id="reg-email-shown" style="font-size:13px; color:var(--accent2); margin-top:4px;"></p>
+          </div>
+          <div class="input-group">
+            <label class="input-label">6 xonali kod</label>
+            <input class="input mono" type="text" id="r-code" placeholder="000000" maxlength="6" style="text-align:center; font-size:24px; letter-spacing:8px;">
+          </div>
+          <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="confirmRegister()">
+            <i class="fas fa-check"></i> Tasdiqlash
+          </button>
+          <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="showStep(1)">
+            <i class="fas fa-arrow-left"></i> Orqaga
+          </button>
+        </div>
+      </div>
+
+      <!-- Mentor Login -->
+      <div id="panel-mentor" class="login-panel hidden">
+        <div class="input-group">
+          <label class="input-label">Telefon Raqam</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-phone ico"></i>
+            <input class="input" type="tel" id="m-phone" placeholder="+998901234567">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Parol</label>
+          <div class="input-icon-wrap">
+            <i class="fas fa-lock ico"></i>
+            <input class="input" type="password" id="m-pass" placeholder="••••••••">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="mentorLogin()">
+          <i class="fas fa-sign-in-alt"></i> Mentor kirishi
+        </button>
+      </div>
+
+      <!-- Forgot Password -->
+      <div id="panel-forgot" class="login-panel hidden">
+        <div id="forgot-step1">
+          <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">Email manzilingizni kiriting. Tasdiqlash kodi yuboriladi.</p>
+          <div class="input-group">
+            <label class="input-label">Email</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-envelope ico"></i>
+              <input class="input" type="email" id="f-email" placeholder="email@example.com">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="sendResetCode()">
+            <i class="fas fa-paper-plane"></i> Kod yuborish
+          </button>
+          <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="switchLoginTab('student')">
+            <i class="fas fa-arrow-left"></i> Orqaga
+          </button>
+        </div>
+        <div id="forgot-step2" class="hidden">
+          <div id="forgot-info" style="background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; font-size:13px;"></div>
+          <div class="input-group">
+            <label class="input-label">Tasdiqlash kodi</label>
+            <input class="input mono" type="text" id="f-code" placeholder="000000" maxlength="6" style="text-align:center; font-size:24px; letter-spacing:8px;">
+          </div>
+          <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="confirmReset()">
+            <i class="fas fa-check"></i> Tasdiqlash
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="admin-key-btn-login" class="admin-key-btn" onclick="showAdminLogin()">
+    <i class="fas fa-key"></i>
+  </button>
+</div>
+
+<!-- ===== ADMIN PANEL ===== -->
+<div id="admin-panel" class="hidden" style="display:none;">
+  <div id="app">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <div>
+          <div class="sidebar-logo-text">Ustoz AI</div>
+          <div class="sidebar-logo-sub">Admin Panel</div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-group-title">Asosiy</div>
+        <button class="nav-item active" onclick="adminNav('dashboard')" id="anav-dashboard">
+          <i class="fas fa-th-large ico"></i> Dashboard
+        </button>
+        <button class="nav-item" onclick="adminNav('mentors')" id="anav-mentors">
+          <i class="fas fa-chalkboard-teacher ico"></i> Mentorlar
+        </button>
+        <button class="nav-item" onclick="adminNav('students')" id="anav-students">
+          <i class="fas fa-users ico"></i> O'quvchilar
+        </button>
+        <button class="nav-item" onclick="adminNav('groups')" id="anav-groups">
+          <i class="fas fa-layer-group ico"></i> Guruhlar
+        </button>
+        <div class="nav-group-title" style="margin-top:8px">Jadval</div>
+        <button class="nav-item" onclick="adminNav('calendar')" id="anav-calendar">
+          <i class="fas fa-calendar-alt ico"></i> Kalendar
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar">A</div>
+          <div>
+            <div class="user-name">Administrator</div>
+            <div class="user-role">Super Admin</div>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm w-full" style="margin-top:8px" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Chiqish
+        </button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title" id="admin-page-title">Dashboard</div>
+        <div class="flex gap-1">
+          <span class="badge badge-purple"><i class="fas fa-shield-alt"></i> Admin</span>
+        </div>
+      </div>
+      <div class="page-content" id="admin-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MENTOR PANEL ===== -->
+<div id="mentor-panel" class="hidden">
+  <div id="app">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">👨‍🏫</div>
+        <div>
+          <div class="sidebar-logo-text">Ustoz AI</div>
+          <div class="sidebar-logo-sub">Mentor Panel</div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-group-title">Asosiy</div>
+        <button class="nav-item active" onclick="mentorNav('dashboard')" id="mnav-dashboard">
+          <i class="fas fa-th-large ico"></i> Dashboard
+        </button>
+        <button class="nav-item" onclick="mentorNav('groups')" id="mnav-groups">
+          <i class="fas fa-layer-group ico"></i> Guruhlar
+        </button>
+        <div class="nav-group-title" style="margin-top:8px">Jadval</div>
+        <button class="nav-item" onclick="mentorNav('calendar')" id="mnav-calendar">
+          <i class="fas fa-calendar-alt ico"></i> Kalendar
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info" id="mentor-user-info">
+          <div class="user-avatar" id="mentor-avatar-letter">M</div>
+          <div>
+            <div class="user-name" id="mentor-display-name">Mentor</div>
+            <div class="user-role">Mentor</div>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm w-full" style="margin-top:8px" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Chiqish
+        </button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title" id="mentor-page-title">Dashboard</div>
+      </div>
+      <div class="page-content" id="mentor-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STUDENT PANEL ===== -->
+<div id="student-panel" class="hidden">
+  <div id="app">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <div>
+          <div class="sidebar-logo-text">Ustoz AI</div>
+          <div class="sidebar-logo-sub">O'quvchi Panel</div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-group-title">Asosiy</div>
+        <button class="nav-item active" onclick="studentNav('dashboard')" id="snav-dashboard">
+          <i class="fas fa-th-large ico"></i> Dashboard
+        </button>
+        <button class="nav-item" onclick="studentNav('tasks')" id="snav-tasks">
+          <i class="fas fa-tasks ico"></i> Vazifalar
+        </button>
+        <button class="nav-item" onclick="studentNav('group')" id="snav-group">
+          <i class="fas fa-layer-group ico"></i> Guruhim
+        </button>
+        <button class="nav-item" onclick="studentNav('profile')" id="snav-profile">
+          <i class="fas fa-user-circle ico"></i> Profil
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="student-avatar-letter">O</div>
+          <div>
+            <div class="user-name" id="student-display-name">O'quvchi</div>
+            <div class="user-role">Student</div>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm w-full" style="margin-top:8px" onclick="logout()">
+          <i class="fas fa-sign-out-alt"></i> Chiqish
+        </button>
+      </div>
+    </nav>
+    <div class="main-content">
+      <div class="topbar">
+        <div class="topbar-title" id="student-page-title">Dashboard</div>
+      </div>
+      <div class="page-content" id="student-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS CONTAINER -->
+<div id="modals"></div>
+
+<script>
+// ============================================
+// CONFIGURATION
+// ============================================
+const API = 'https://ustoz-production.up.railway.app';
+const EMAILJS_SERVICE = 'service_pa8gy9p';
+const EMAILJS_TEMPLATE = 'template_yp24b9j';
+const EMAILJS_KEY = 'WBQT54zVVgzcv_3Nj';
+
+// EmailJS alternative - we use backend to return codes for demo
+// In production, integrate EmailJS properly
+
+let STATE = {
+  token: localStorage.getItem('uy_token') || null,
+  user: JSON.parse(localStorage.getItem('uy_user') || 'null'),
+  currentGroup: null,
+  regData: null
+};
+
+// ============================================
+// UTILS
+// ============================================
+function toast(msg, type='info') {
+  const icons = {info:'fa-info-circle', success:'fa-check-circle', error:'fa-exclamation-circle'};
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas ${icons[type]} toast-icon"></i><span class="toast-msg">${msg}</span>`;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function api(endpoint, opts={}) {
+  const headers = {'Content-Type':'application/json'};
+  if(STATE.token) headers['Authorization'] = 'Bearer ' + STATE.token;
+  return fetch(API + endpoint, {headers, ...opts})
+    .then(async r => {
+      const data = await r.json();
+      if(!r.ok) throw new Error(data.error || 'Server xatosi');
+      return data;
+    });
+}
+
+function logout() {
+  localStorage.removeItem('uy_token');
+  localStorage.removeItem('uy_user');
+  STATE.token = null; STATE.user = null;
+  showLogin();
+}
+
+function saveState() {
+  localStorage.setItem('uy_token', STATE.token);
+  localStorage.setItem('uy_user', JSON.stringify(STATE.user));
+}
+
+function hideAll() {
+  ['login-page','admin-panel','mentor-panel','student-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) { el.classList.add('hidden'); el.style.display = ''; }
+  });
+  document.getElementById('admin-key-btn-login')?.classList.add('hidden');
+}
+
+function showLogin() {
+  hideAll();
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('admin-key-btn-login').classList.remove('hidden');
+}
+
+function el(id) { return document.getElementById(id); }
+
+function modal(html) {
+  const m = document.createElement('div');
+  m.className = 'modal-backdrop';
+  m.innerHTML = `<div class="modal">${html}</div>`;
+  m.addEventListener('click', e => { if(e.target === m) m.remove(); });
+  document.getElementById('modals').appendChild(m);
+  return m;
+}
+
+function formatDate(d) {
+  if(!d) return '-';
+  return new Date(d).toLocaleDateString('uz-UZ', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+function formatTime(d) {
+  if(!d) return '';
+  return new Date(d).toLocaleTimeString('uz-UZ', {hour:'2-digit', minute:'2-digit'});
+}
+function initials(name) {
+  return (name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+}
+
+// ============================================
+// LOGIN
+// ============================================
+function switchLoginTab(tab) {
+  ['student','register','mentor','forgot'].forEach(t => {
+    el(`panel-${t}`)?.classList.add('hidden');
+    el(`tab-${t}`)?.classList.remove('active');
+  });
+  el(`panel-${tab}`)?.classList.remove('hidden');
+  el(`tab-${tab}`)?.classList.add('active');
+}
+
+async function studentLogin() {
+  const email = el('s-email').value.trim();
+  const pass = el('s-pass').value;
+  if(!email || !pass) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  try {
+    const data = await api('/auth/login', {
+      method:'POST', body:JSON.stringify({email, password:pass})
+    });
+    STATE.token = data.token; STATE.user = data.user; saveState();
+    toast('Xush kelibsiz, ' + data.user.full_name + '!', 'success');
+    showStudentPanel();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function mentorLogin() {
+  const phone = el('m-phone').value.trim();
+  const pass = el('m-pass').value;
+  if(!phone || !pass) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  try {
+    const data = await api('/auth/mentor-login', {
+      method:'POST', body:JSON.stringify({phone, password:pass})
+    });
+    STATE.token = data.token; STATE.user = data.user; saveState();
+    toast('Xush kelibsiz, ' + data.user.full_name + '!', 'success');
+    showMentorPanel();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function showAdminLogin() {
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-shield-alt" style="color:var(--accent)"></i> Admin Kirish</h3>
+    <div class="input-group">
+      <label class="input-label">Admin Parol</label>
+      <div class="input-icon-wrap">
+        <i class="fas fa-lock ico"></i>
+        <input class="input" type="password" id="admin-pass" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Bekor</button>
+      <button class="btn btn-primary" onclick="adminLoginSubmit()"><i class="fas fa-sign-in-alt"></i> Kirish</button>
+    </div>
+  `);
+  setTimeout(() => el('admin-pass')?.focus(), 100);
+}
+
+async function adminLoginSubmit() {
+  const pass = el('admin-pass').value;
+  try {
+    const data = await api('/auth/admin-login', {
+      method:'POST', body:JSON.stringify({password:pass})
+    });
+    STATE.token = data.token; STATE.user = data.user; saveState();
+    document.querySelector('.modal-backdrop')?.remove();
+    toast('Admin paneliga xush kelibsiz!', 'success');
+    showAdminPanel();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// REGISTER
+async function startRegister() {
+  const login = el('r-login').value.trim();
+  const name = el('r-name').value.trim();
+  const phone = el('r-phone').value.trim();
+  const email = el('r-email').value.trim();
+  const group = el('r-group').value.trim();
+  const pass = el('r-pass').value;
+  
+  if(!login||!name||!phone||!email||!group||!pass) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  
+  // Check if email exists
+  try {
+    const check = await api('/auth/check-email', {method:'POST', body:JSON.stringify({email})});
+    if(check.exists) {
+      const confirmed = await confirmDialog(
+        `Bu email (${email}) bilan <strong>${check.name}</strong> allaqachon ro'yxatdan o'tgan!\n\nAkkauntingizga kirishni xohlaysizmi?`
+      );
+      if(confirmed) { switchLoginTab('student'); el('s-email').value = email; return; }
+      return;
+    }
+  } catch(e) {}
+  
+  STATE.regData = {login, full_name:name, phone, email, group_name:group, password:pass};
+  
+  // Send verification
+  try {
+    const res = await api('/auth/send-verification', {method:'POST', body:JSON.stringify({email, purpose:'register'})});
+    toast('Tasdiqlash kodi: ' + res.code, 'info'); // In prod, code sent by email
+    el('reg-email-shown').textContent = email;
+    el('reg-step1').classList.add('hidden');
+    el('reg-step2').classList.remove('hidden');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function showStep(n) {
+  el('reg-step1').classList.toggle('hidden', n !== 1);
+  el('reg-step2').classList.toggle('hidden', n !== 2);
+}
+
+async function confirmRegister() {
+  const code = el('r-code').value.trim();
+  if(code.length !== 6) return toast('6 xonali kodni kiriting', 'error');
+  
+  try {
+    await api('/auth/verify-code', {method:'POST', body:JSON.stringify({
+      email: STATE.regData.email, code, purpose:'register'
+    })});
+    
+    const data = await api('/auth/register', {method:'POST', body:JSON.stringify(STATE.regData)});
+    STATE.token = data.token; STATE.user = data.user; saveState();
+    toast('Ro\'yxatdan muvaffaqiyatli o\'tdingiz!', 'success');
+    showStudentPanel();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function sendResetCode() {
+  const email = el('f-email').value.trim();
+  if(!email) return toast('Email kiriting', 'error');
+  try {
+    const res = await api('/auth/reset-password', {method:'POST', body:JSON.stringify({email})});
+    el('forgot-info').innerHTML = `
+      <div style="color:var(--green);margin-bottom:6px;"><i class="fas fa-check-circle"></i> Kod yuborildi!</div>
+      <div>Login: <strong class="mono">${res.login}</strong></div>
+      <div style="margin-top:4px;color:var(--text3);">Kod: <strong class="mono">${res.code}</strong></div>
+    `;
+    el('forgot-step1').classList.add('hidden');
+    el('forgot-step2').classList.remove('hidden');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function confirmReset() {
+  const code = el('f-code').value.trim();
+  const email = el('f-email').value.trim();
+  try {
+    await api('/auth/verify-code', {method:'POST', body:JSON.stringify({email, code, purpose:'reset'})});
+    toast('Tasdiqlandi! Email orqali login va parol yuborildi.', 'success');
+    switchLoginTab('student');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function confirmDialog(msg) {
+  return new Promise(resolve => {
+    const m = modal(`
+      <div style="text-align:center;padding:8px 0;">
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <p style="font-size:14px;color:var(--text2);line-height:1.6;">${msg}</p>
+      </div>
+      <div class="modal-footer" style="justify-content:center;">
+        <button class="btn btn-secondary" id="cd-no">Yo'q</button>
+        <button class="btn btn-primary" id="cd-yes">Ha</button>
+      </div>
+    `);
+    el('cd-yes').onclick = () => { m.remove(); resolve(true); };
+    el('cd-no').onclick = () => { m.remove(); resolve(false); };
+  });
+}
+
+// ============================================
+// ADMIN PANEL
+// ============================================
+function showAdminPanel() {
+  hideAll();
+  el('admin-panel').classList.remove('hidden');
+  el('admin-panel').style.display = 'block';
+  adminNav('dashboard');
+}
+
+function adminNav(page) {
+  document.querySelectorAll('[id^="anav-"]').forEach(b => b.classList.remove('active'));
+  el(`anav-${page}`)?.classList.add('active');
+  const titles = {dashboard:'Dashboard', mentors:'Mentorlar', students:"O'quvchilar", groups:'Guruhlar', calendar:'Kalendar'};
+  el('admin-page-title').textContent = titles[page] || page;
+  
+  const fns = {
+    dashboard: renderAdminDashboard,
+    mentors: renderAdminMentors,
+    students: renderAdminStudents,
+    groups: renderAdminGroups,
+    calendar: renderAdminCalendar
+  };
+  fns[page]?.();
+}
+
+async function renderAdminDashboard() {
+  const c = el('admin-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Yuklanmoqda...</p></div>';
+  try {
+    const stats = await api('/admin/stats');
+    c.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(79,142,247,0.15);color:var(--accent)"><i class="fas fa-users"></i></div>
+          <div><div class="stat-value">${stats.students}</div><div class="stat-label">Jami O'quvchilar</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(167,139,250,0.15);color:var(--purple)"><i class="fas fa-chalkboard-teacher"></i></div>
+          <div><div class="stat-value">${stats.mentors}</div><div class="stat-label">Mentorlar</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(52,211,153,0.15);color:var(--green)"><i class="fas fa-layer-group"></i></div>
+          <div><div class="stat-value">${stats.active_groups}</div><div class="stat-label">Aktiv Guruhlar</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-layer-group" style="color:var(--accent)"></i> Guruhlar Ro'yxati</div>
+        </div>
+        <table class="table">
+          <thead><tr><th>Guruh nomi</th><th>Mentor</th><th>Holati</th></tr></thead>
+          <tbody>${stats.groups.map(g => `
+            <tr>
+              <td><strong>${g.name}</strong></td>
+              <td>${g.mentor_name || '<span style="color:var(--text3)">Tayinlanmagan</span>'}</td>
+              <td><span class="badge badge-green"><i class="fas fa-circle"></i> Aktiv</span></td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderAdminMentors() {
+  const c = el('admin-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const mentors = await api('/admin/mentors');
+    c.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-chalkboard-teacher" style="color:var(--purple)"></i> Mentorlar</div>
+          <button class="btn btn-primary btn-sm" onclick="showAddMentor()"><i class="fas fa-plus"></i> Mentor qo'shish</button>
+        </div>
+        <table class="table">
+          <thead><tr><th>Ism</th><th>Telefon</th><th>Guruhlar</th><th>Holati</th><th></th></tr></thead>
+          <tbody>${mentors.length ? mentors.map(m => `
+            <tr>
+              <td><div class="flex items-center gap-1">
+                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;">${initials(m.full_name)}</div>
+                <strong>${m.full_name}</strong>
+              </div></td>
+              <td class="mono">${m.phone}</td>
+              <td>${JSON.parse(m.groups||'[]').map(g=>`<span class="badge badge-blue">${g}</span>`).join(' ')}</td>
+              <td><span class="badge ${m.is_active?'badge-green':'badge-red'}">${m.is_active?'Aktiv':'Nofaol'}</span></td>
+              <td><button class="btn btn-danger btn-sm btn-icon" onclick="deleteMentor('${m.id}')"><i class="fas fa-trash"></i></button></td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" class="empty-state"><p>Hali mentor qo\'shilmagan</p></td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+function showAddMentor() {
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-user-plus" style="color:var(--accent)"></i> Mentor Qo'shish</h3>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="input-group">
+        <label class="input-label">Ism Familya</label>
+        <input class="input" type="text" id="nm-name" placeholder="Jasur Toshmatov">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Telefon Raqam</label>
+        <input class="input" type="tel" id="nm-phone" placeholder="+998901234567">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Parol</label>
+        <input class="input" type="text" id="nm-pass" placeholder="Parol kiriting">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Guruhlar (vergul bilan)</label>
+        <input class="input" type="text" id="nm-groups" placeholder="Python-1, Django-1">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Bekor</button>
+      <button class="btn btn-primary" onclick="addMentor()"><i class="fas fa-plus"></i> Qo'shish</button>
+    </div>
+  `);
+}
+
+async function addMentor() {
+  const full_name = el('nm-name').value.trim();
+  const phone = el('nm-phone').value.trim();
+  const password = el('nm-pass').value.trim();
+  const groupsRaw = el('nm-groups').value.trim();
+  const groups = groupsRaw ? groupsRaw.split(',').map(g=>g.trim()).filter(Boolean) : [];
+  
+  if(!full_name||!phone||!password) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  
+  try {
+    await api('/admin/mentors', {method:'POST', body:JSON.stringify({full_name, phone, password, groups})});
+    document.querySelector('.modal-backdrop')?.remove();
+    toast('Mentor muvaffaqiyatli qo\'shildi!', 'success');
+    renderAdminMentors();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteMentor(id) {
+  const ok = await confirmDialog('Ushbu mentorni o\'chirmoqchimisiz?');
+  if(!ok) return;
+  try {
+    await api(`/admin/mentors/${id}`, {method:'DELETE'});
+    toast('Mentor o\'chirildi', 'success');
+    renderAdminMentors();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderAdminStudents() {
+  const c = el('admin-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const students = await api('/admin/students');
+    c.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-users" style="color:var(--accent)"></i> O'quvchilar (${students.length})</div>
+        </div>
+        <table class="table">
+          <thead><tr><th>Ism</th><th>Login</th><th>Email</th><th>Guruh</th><th>Sana</th></tr></thead>
+          <tbody>${students.length ? students.map(s => `
+            <tr>
+              <td><div class="flex items-center gap-1">
+                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;">${initials(s.full_name)}</div>
+                <strong>${s.full_name}</strong>
+              </div></td>
+              <td class="mono text-sm">${s.login}</td>
+              <td class="text-sm">${s.email}</td>
+              <td><span class="badge badge-blue">${s.group_name}</span></td>
+              <td class="text-sm" style="color:var(--text3)">${formatDate(s.created_at)}</td>
+            </tr>
+          `).join('') : '<tr><td colspan="5"><div class="empty-state"><p>Hali o\'quvchi yo\'q</p></div></td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderAdminGroups() {
+  const c = el('admin-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const groups = await api('/admin/groups');
+    c.innerHTML = `
+      <div class="groups-grid">
+        ${groups.map(g => `
+          <div class="group-card">
+            <div class="group-icon">📚</div>
+            <div class="group-name">${g.name}</div>
+            <div class="group-meta">Mentor: ${g.mentor_name || 'Tayinlanmagan'}</div>
+            <div style="margin-top:12px;"><span class="badge badge-green"><i class="fas fa-circle"></i> Aktiv</span></div>
+          </div>
+        `).join('') || '<div class="empty-state"><i class="fas fa-layer-group"></i><p>Hali guruh yo\'q</p></div>'}
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderAdminCalendar() {
+  const c = el('admin-content');
+  const now = new Date();
+  
+  c.innerHTML = `
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px"><i class="fas fa-plus-circle" style="color:var(--accent)"></i> Tadbir qo'shish</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="input-group">
+            <label class="input-label">Sarlavha</label>
+            <input class="input" type="text" id="ev-title" placeholder="Dars, Imtihon...">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Sana</label>
+            <input class="input" type="date" id="ev-date">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Vaqt</label>
+            <input class="input" type="time" id="ev-time">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Tavsif</label>
+            <textarea class="input" id="ev-desc" placeholder="Qo'shimcha ma'lumot" style="min-height:60px"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="addCalendarEvent()"><i class="fas fa-plus"></i> Qo'shish</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px"><i class="fas fa-calendar-alt" style="color:var(--accent)"></i> Kalendar</div>
+        <div id="admin-cal-grid"></div>
+      </div>
+    </div>
+  `;
+  
+  renderCalendarGrid('admin-cal-grid', now);
+}
+
+async function addCalendarEvent() {
+  const title = el('ev-title').value.trim();
+  const event_date = el('ev-date').value;
+  const event_time = el('ev-time').value;
+  const description = el('ev-desc').value.trim();
+  if(!title||!event_date) return toast('Sarlavha va sana kiritilishi shart', 'error');
+  try {
+    await api('/admin/calendar', {method:'POST', body:JSON.stringify({title, event_date, event_time, description})});
+    toast('Tadbir qo\'shildi!', 'success');
+    renderAdminCalendar();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderCalendarGrid(containerId, date) {
+  const container = el(containerId);
+  if(!container) return;
+  
+  let events = [];
+  try { events = await api('/calendar'); } catch(e) {}
+  
+  const y = date.getFullYear(), mn = date.getMonth();
+  const firstDay = new Date(y, mn, 1).getDay();
+  const daysInMonth = new Date(y, mn+1, 0).getDate();
+  const today = new Date();
+  
+  const eventDates = new Set(events.map(e => e.event_date));
+  const months = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+  
+  let html = `
+    <div class="flex justify-between items-center" style="margin-bottom:16px;">
+      <button class="btn btn-secondary btn-sm" onclick="changeMonth(-1,'${containerId}')"><i class="fas fa-chevron-left"></i></button>
+      <strong>${months[mn]} ${y}</strong>
+      <button class="btn btn-secondary btn-sm" onclick="changeMonth(1,'${containerId}')"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="calendar-grid">
+      ${['Ya','Du','Se','Ch','Pa','Ju','Sh'].map(d=>`<div class="cal-header">${d}</div>`).join('')}
+      ${Array(firstDay===0?6:firstDay-1).fill('<div></div>').join('')}
+      ${Array.from({length:daysInMonth},(_,i)=>{
+        const day = i+1;
+        const dateStr = `${y}-${String(mn+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const isToday = day===today.getDate() && mn===today.getMonth() && y===today.getFullYear();
+        const hasEv = eventDates.has(dateStr);
+        return `<div class="cal-day ${isToday?'today':''} ${hasEv?'has-event':''}">${day}</div>`;
+      }).join('')}
+    </div>
+  `;
+  
+  if(events.length) {
+    html += `<div style="margin-top:16px;"><div class="card-title text-sm" style="margin-bottom:10px">Tadbirlar</div>`;
+    events.slice(0,5).forEach(e => {
+      html += `<div class="flex items-center gap-2" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <span class="badge badge-blue">${e.event_date}</span>
+        <span style="font-size:13px">${e.title}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  
+  container.innerHTML = html;
+  // Store current date for navigation
+  container.dataset.year = y;
+  container.dataset.month = mn;
+}
+
+function changeMonth(dir, containerId) {
+  const container = el(containerId);
+  const y = parseInt(container.dataset.year);
+  const mn = parseInt(container.dataset.month);
+  const newDate = new Date(y, mn + dir, 1);
+  renderCalendarGrid(containerId, newDate);
+}
+
+// ============================================
+// MENTOR PANEL
+// ============================================
+function showMentorPanel() {
+  hideAll();
+  el('mentor-panel').classList.remove('hidden');
+  const u = STATE.user;
+  el('mentor-display-name').textContent = u?.full_name || 'Mentor';
+  el('mentor-avatar-letter').textContent = initials(u?.full_name || 'M');
+  mentorNav('dashboard');
+}
+
+function mentorNav(page) {
+  document.querySelectorAll('[id^="mnav-"]').forEach(b => b.classList.remove('active'));
+  el(`mnav-${page}`)?.classList.add('active');
+  const titles = {dashboard:'Dashboard', groups:'Guruhlar', calendar:'Kalendar'};
+  el('mentor-page-title').textContent = titles[page] || page;
+  
+  const fns = { dashboard: renderMentorDashboard, groups: renderMentorGroups, calendar: renderMentorCalendar };
+  fns[page]?.();
+}
+
+async function renderMentorDashboard() {
+  const c = el('mentor-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const [profile, groups] = await Promise.all([
+      api('/mentor/profile'), api('/mentor/groups')
+    ]);
+    
+    c.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar-big">${initials(profile.full_name)}</div>
+        <div>
+          <div class="profile-name">${profile.full_name}</div>
+          <div class="profile-role"><i class="fas fa-chalkboard-teacher"></i> Mentor</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            ${JSON.parse(profile.groups||'[]').map(g=>`<span class="badge badge-blue">${g}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(79,142,247,0.15);color:var(--accent)"><i class="fas fa-users"></i></div>
+          <div><div class="stat-value">${profile.students_count}</div><div class="stat-label">O'quvchilar</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(52,211,153,0.15);color:var(--green)"><i class="fas fa-layer-group"></i></div>
+          <div><div class="stat-value">${groups.length}</div><div class="stat-label">Guruhlar</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-layer-group" style="color:var(--accent)"></i> Guruhlarim</div>
+        </div>
+        <div class="groups-grid">
+          ${groups.map(g => `
+            <div class="group-card" onclick="openMentorGroup('${g.id}','${g.name}')">
+              <div class="group-icon">📚</div>
+              <div class="group-name">${g.name}</div>
+              <div class="group-meta">${g.students_count} nafar o'quvchi</div>
+              <div style="margin-top:12px;"><span class="badge badge-green"><i class="fas fa-arrow-right"></i> Kirish</span></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderMentorGroups() {
+  const c = el('mentor-content');
+  try {
+    const groups = await api('/mentor/groups');
+    c.innerHTML = `
+      <div class="groups-grid">
+        ${groups.map(g => `
+          <div class="group-card" onclick="openMentorGroup('${g.id}','${g.name}')">
+            <div class="group-icon">📚</div>
+            <div class="group-name">${g.name}</div>
+            <div class="group-meta">${g.students_count} nafar o'quvchi</div>
+            <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="event.stopPropagation();openMentorGroup('${g.id}','${g.name}')">
+              <i class="fas fa-arrow-right"></i> Kirish
+            </button>
+          </div>
+        `).join('') || '<div class="empty-state"><i class="fas fa-layer-group"></i><p>Hali guruh yo\'q</p></div>'}
+      </div>
+    `;
+  } catch(e) { el('mentor-content').innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderMentorCalendar() {
+  const c = el('mentor-content');
+  c.innerHTML = `
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px"><i class="fas fa-calendar-alt" style="color:var(--accent)"></i> Kalendar</div>
+      <div id="mentor-cal-grid"></div>
+    </div>
+  `;
+  renderCalendarGrid('mentor-cal-grid', new Date());
+}
+
+// GROUP DETAIL - MENTOR
+async function openMentorGroup(groupId, groupName) {
+  STATE.currentGroup = {id:groupId, name:groupName};
+  el('mentor-page-title').textContent = groupName;
+  
+  const c = el('mentor-content');
+  c.innerHTML = `
+    <button class="back-btn" onclick="mentorNav('groups')"><i class="fas fa-arrow-left"></i> Orqaga</button>
+    <div class="group-tabs">
+      <button class="group-tab active" onclick="mentorGroupTab('tasks','${groupId}','${groupName}')" id="gtab-tasks"><i class="fas fa-tasks"></i> Vazifalar</button>
+      <button class="group-tab" onclick="mentorGroupTab('inclass','${groupId}','${groupName}')" id="gtab-inclass"><i class="fas fa-bolt"></i> Darsda</button>
+      <button class="group-tab" onclick="mentorGroupTab('chat','${groupId}','${groupName}')" id="gtab-chat"><i class="fas fa-comments"></i> Chat</button>
+      <button class="group-tab" onclick="mentorGroupTab('schedule','${groupId}','${groupName}')" id="gtab-schedule"><i class="fas fa-table"></i> Jadval</button>
+      <button class="group-tab" onclick="mentorGroupTab('students','${groupId}','${groupName}')" id="gtab-students"><i class="fas fa-users"></i> O'quvchilar</button>
+    </div>
+    <div id="group-tab-content"></div>
+  `;
+  
+  mentorGroupTab('tasks', groupId, groupName);
+}
+
+function mentorGroupTab(tab, groupId, groupName) {
+  document.querySelectorAll('[id^="gtab-"]').forEach(b=>b.classList.remove('active'));
+  el(`gtab-${tab}`)?.classList.add('active');
+  
+  const fns = {
+    tasks: () => renderMentorTasks(groupId),
+    inclass: () => renderInClassTask(groupId),
+    chat: () => renderChat(groupId, 'mentor'),
+    schedule: () => renderSchedule(groupId, 'mentor'),
+    students: () => renderGroupStudents(groupId)
+  };
+  fns[tab]?.();
+}
+
+async function renderMentorTasks(groupId) {
+  const c = el('group-tab-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const tasks = await api(`/tasks/${groupId}`);
+    c.innerHTML = `
+      <div class="flex justify-between items-center" style="margin-bottom:16px;">
+        <strong>${tasks.length} ta uy vazifasi</strong>
+        <button class="btn btn-primary btn-sm" onclick="showAddTask('${groupId}','homework')"><i class="fas fa-plus"></i> Vazifa qo'shish</button>
+      </div>
+      ${tasks.filter(t=>t.task_type==='homework').map(t => renderTaskCard(t, 'mentor')).join('')
+        || '<div class="empty-state"><i class="fas fa-tasks"></i><p>Hali vazifa yo\'q</p></div>'}
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+function renderTaskCard(task, role) {
+  const deadline = new Date(`${task.deadline_date}T${task.deadline_time}`);
+  const isUrgent = deadline - Date.now() < 3600000;
+  const isPast = deadline < Date.now();
+  
+  return `
+    <div class="task-card">
+      <div class="task-header">
+        <div>
+          <div class="task-title">${task.title}</div>
+          <div class="task-desc">${task.description}</div>
+          <div class="task-deadline ${isUrgent&&!isPast?'urgent':''}">
+            <i class="fas fa-clock"></i> ${task.deadline_date} — ${task.deadline_time}
+            ${isPast?'<span class="badge badge-red" style="margin-left:4px">Muddati o\'tgan</span>':''}
+            ${isUrgent&&!isPast?'<span class="badge badge-yellow" style="margin-left:4px">Tez yopiladi</span>':''}
+          </div>
+        </div>
+        ${role==='mentor'?`
+          <button class="btn btn-secondary btn-sm" onclick="viewSubmissions('${task.id}','${task.title}')">
+            <i class="fas fa-list"></i> Javoblar
+          </button>
+        `:''}
+      </div>
+    </div>
+  `;
+}
+
+function showAddTask(groupId, type='homework') {
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-tasks" style="color:var(--accent)"></i> Vazifa Qo'shish</h3>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="input-group">
+        <label class="input-label">Vazifa sarlavhasi</label>
+        <input class="input" type="text" id="nt-title" placeholder="Python function...">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Vazifa sharti</label>
+        <textarea class="input" id="nt-desc" placeholder="Vazifani batafsil yozing..."></textarea>
+      </div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label class="input-label">Muddati (sana)</label>
+          <input class="input" type="date" id="nt-date">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Muddati (vaqt)</label>
+          <input class="input" type="time" id="nt-time" value="23:00">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Bekor</button>
+      <button class="btn btn-primary" onclick="addTask('${groupId}','${type}')"><i class="fas fa-check"></i> Qo'shish</button>
+    </div>
+  `);
+}
+
+async function addTask(groupId, taskType) {
+  const title = el('nt-title').value.trim();
+  const description = el('nt-desc').value.trim();
+  const deadline_date = el('nt-date').value;
+  const deadline_time = el('nt-time').value || '23:00';
+  
+  if(!title||!description||!deadline_date) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  
+  try {
+    await api('/mentor/tasks', {method:'POST', body:JSON.stringify({
+      group_id:groupId, title, description, deadline_date, deadline_time, task_type:taskType
+    })});
+    document.querySelector('.modal-backdrop')?.remove();
+    toast('Vazifa qo\'shildi!', 'success');
+    mentorGroupTab('tasks', groupId);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderInClassTask(groupId) {
+  const c = el('group-tab-content');
+  const tasks = await api(`/tasks/${groupId}`).catch(()=>[]);
+  const inclass = tasks.filter(t=>t.task_type==='inclass');
+  
+  c.innerHTML = `
+    <div class="flex justify-between items-center" style="margin-bottom:16px;">
+      <strong>${inclass.length} ta darsda vazifasi</strong>
+      <button class="btn btn-primary btn-sm" onclick="showAddInclassTask('${groupId}')"><i class="fas fa-bolt"></i> Darsda vazifa</button>
+    </div>
+    ${inclass.map(t => renderTaskCard(t, 'mentor')).join('')
+      || '<div class="empty-state"><i class="fas fa-bolt"></i><p>Hali darsda vazifasi yo\'q</p></div>'}
+  `;
+}
+
+function showAddInclassTask(groupId) {
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-bolt" style="color:var(--yellow)"></i> Darsda Vazifa</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">O'quvchilar berilgan vaqt ichida javob yuborishlari kerak.</p>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="input-group">
+        <label class="input-label">Sarlavha</label>
+        <input class="input" type="text" id="ic-title" placeholder="Vazifa nomi">
+      </div>
+      <div class="input-group">
+        <label class="input-label">Shart</label>
+        <textarea class="input" id="ic-desc" placeholder="Vazifa matni..."></textarea>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Vaqt (daqiqada)</label>
+        <input class="input" type="number" id="ic-dur" value="5" min="1" max="60">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Bekor</button>
+      <button class="btn btn-primary" onclick="addInclassTask('${groupId}')"><i class="fas fa-play"></i> Boshlash</button>
+    </div>
+  `);
+}
+
+async function addInclassTask(groupId) {
+  const title = el('ic-title').value.trim();
+  const description = el('ic-desc').value.trim();
+  const dur = parseInt(el('ic-dur').value) || 5;
+  if(!title||!description) return toast('Maydonlarni to\'ldiring', 'error');
+  
+  const now = new Date();
+  const deadline = new Date(now.getTime() + dur * 60000);
+  const deadline_date = deadline.toISOString().split('T')[0];
+  const deadline_time = deadline.toTimeString().slice(0,5);
+  
+  try {
+    await api('/mentor/tasks', {method:'POST', body:JSON.stringify({
+      group_id:groupId, title, description, deadline_date, deadline_time,
+      task_type:'inclass', duration_minutes:dur
+    })});
+    document.querySelector('.modal-backdrop')?.remove();
+    toast(`Vazifa ${dur} daqiqaga belgilandi!`, 'success');
+    mentorGroupTab('inclass', groupId);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function viewSubmissions(taskId, taskTitle) {
+  const subs = await api(`/tasks/${taskId}/submissions`).catch(()=>[]);
+  
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-list" style="color:var(--accent)"></i> "${taskTitle}" — Javoblar</h3>
+    ${subs.length ? subs.map(s => `
+      <div class="task-card" style="margin-bottom:12px;">
+        <div class="flex justify-between items-center">
+          <div>
+            <strong>${s.full_name}</strong>
+            <span class="text-sm" style="color:var(--text3);margin-left:8px">${s.login}</span>
+          </div>
+          <div class="flex gap-1 items-center">
+            ${s.mentor_score ? `<span class="badge badge-green">${s.mentor_score} ball</span>` : ''}
+            <span class="text-xs" style="color:var(--text3)">${s.submitted_at?.slice(0,16)||''}</span>
+          </div>
+        </div>
+        <div class="code-block" style="margin-top:10px">${escapeHtml(s.content)}</div>
+        ${s.ai_feedback ? `
+          <div class="ai-feedback">
+            <div class="ai-feedback-title"><i class="fas fa-robot"></i> AI Baholash</div>
+            <div class="ai-feedback-text">${s.ai_feedback}</div>
+          </div>
+        ` : `
+          <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="requestAI('${s.id}',this)">
+            <i class="fas fa-robot"></i> AI bilan tekshirish
+          </button>
+        `}
+        <div class="flex gap-1 items-center" style="margin-top:10px;">
+          <input class="input" type="number" id="score-${s.id}" value="${s.mentor_score||''}" placeholder="Ball (0-100)" style="width:120px;">
+          <button class="btn btn-success btn-sm" onclick="saveScore('${s.id}','${taskId}','${taskTitle}')">
+            <i class="fas fa-save"></i> Saqlash
+          </button>
+        </div>
+      </div>
+    `).join('') : '<div class="empty-state"><i class="fas fa-inbox"></i><p>Hali javob yo\'q</p></div>'}
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Yopish</button>
+    </div>
+  `);
+}
+
+function escapeHtml(text) {
+  return (text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function requestAI(subId, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Tahlil qilinmoqda...';
+  
+  // Get submission content
+  const codeEl = btn.closest('.task-card').querySelector('.code-block');
+  const code = codeEl?.textContent || '';
+  
+  try {
+    const res = await fetch(API.replace('/api','') + '/api/ai-review', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+STATE.token},
+      body: JSON.stringify({submission_id: subId, code})
+    });
+    
+    if(!res.ok) throw new Error('AI xato');
+    const data = await res.json();
+    
+    // Update UI
+    const aiDiv = document.createElement('div');
+    aiDiv.className = 'ai-feedback';
+    aiDiv.innerHTML = `
+      <div class="ai-feedback-title"><i class="fas fa-robot"></i> AI Baholash</div>
+      <div class="ai-feedback-text">${data.feedback || 'Tahlil natijasi yuklanmadi'}</div>
+    `;
+    btn.replaceWith(aiDiv);
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-robot"></i> AI bilan tekshirish';
+    toast('AI xizmati mavjud emas', 'error');
+  }
+}
+
+async function saveScore(subId, taskId, taskTitle) {
+  const score = parseInt(el(`score-${subId}`)?.value);
+  if(isNaN(score)||score<0||score>100) return toast('0-100 orasida ball kiriting', 'error');
+  try {
+    await api(`/submissions/${subId}/score`, {method:'POST', body:JSON.stringify({score, feedback:''})});
+    toast('Ball saqlandi!', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// CHAT
+async function renderChat(groupId, role) {
+  const c = el('group-tab-content');
+  c.innerHTML = `
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-msgs">
+        <div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>
+      </div>
+      <div class="chat-input-area">
+        <input class="input" type="text" id="chat-input" placeholder="Xabar yozing..." 
+          onkeydown="if(event.key==='Enter')sendMessage('${groupId}','${role}')">
+        <button class="btn btn-primary" onclick="sendMessage('${groupId}','${role}')">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  loadMessages(groupId, role);
+}
+
+async function loadMessages(groupId, role) {
+  try {
+    const msgs = await api(`/chat/${groupId}`);
+    const c = el('chat-msgs');
+    const userId = STATE.user?.id;
+    c.innerHTML = msgs.length ? msgs.map(m => `
+      <div class="message ${m.sender_id===userId?'mine':''}">
+        <div class="msg-avatar">${initials(m.sender_name)}</div>
+        <div class="msg-bubble">
+          ${m.sender_id!==userId?`<div class="msg-sender">${m.sender_name} ${m.sender_type==='mentor'?'<span class="badge badge-purple" style="font-size:9px">Mentor</span>':''}</div>`:''}
+          <div class="msg-text">${escapeHtml(m.content)}</div>
+          <div class="msg-time">${m.created_at?.slice(11,16)||''}</div>
+        </div>
+      </div>
+    `).join('') : '<div class="empty-state"><i class="fas fa-comments"></i><p>Hali xabar yo\'q</p></div>';
+    c.scrollTop = c.scrollHeight;
+  } catch(e) {}
+}
+
+async function sendMessage(groupId, role) {
+  const input = el('chat-input');
+  const content = input.value.trim();
+  if(!content) return;
+  try {
+    await api(`/chat/${groupId}`, {method:'POST', body:JSON.stringify({content})});
+    input.value = '';
+    loadMessages(groupId, role);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// SCHEDULE
+async function renderSchedule(groupId, role) {
+  const c = el('group-tab-content');
+  try {
+    const schedules = await api(`/schedules/${groupId}`);
+    
+    c.innerHTML = `
+      ${role==='mentor'?`
+        <div class="flex justify-end" style="margin-bottom:16px;">
+          <button class="btn btn-primary btn-sm" onclick="showAddSchedule('${groupId}')">
+            <i class="fas fa-plus"></i> Jadval qo'shish
+          </button>
+        </div>
+      `:''}
+      ${schedules.length ? schedules.map(s => renderScheduleTable(s, groupId, role)).join('') 
+        : '<div class="empty-state"><i class="fas fa-table"></i><p>Hali jadval yo\'q</p></div>'}
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+function renderScheduleTable(schedule, groupId, role) {
+  return `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title"><i class="fas fa-book" style="color:var(--accent)"></i> ${schedule.subject_name}</div>
+          <div class="text-sm" style="color:var(--text2);margin-top:4px">${schedule.start_date} — ${schedule.end_date}</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshSchedule('${schedule.id}','${groupId}','${role}')">
+          <i class="fas fa-sync"></i> Yangilash
+        </button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="schedule-table" id="sched-${schedule.id}">
+          <thead><tr><th>#</th><th>Sana</th><th>Mavzu</th><th>Holat</th></tr></thead>
+          <tbody>
+            ${schedule.entries.slice(0,30).map((e,i) => renderScheduleRow(e, i+1, groupId, role)).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderScheduleRow(entry, num, groupId, role) {
+  return `
+    <tr>
+      <td>${num}</td>
+      <td>${entry.date}</td>
+      <td>${entry.topic || '<span style="color:var(--text3)">—</span>'}</td>
+      <td class="done-cell">
+        <button class="done-btn not-done">Bajarilmagan</button>
+      </td>
+    </tr>
+  `;
+}
+
+async function refreshSchedule(schedId, groupId, role) {
+  try {
+    const schedules = await api(`/schedules/${groupId}`);
+    const s = schedules.find(x=>x.id===schedId);
+    if(s) {
+      const table = el(`sched-${schedId}`);
+      if(table) {
+        const tbody = table.querySelector('tbody');
+        tbody.innerHTML = s.entries.slice(0,30).map((e,i)=>renderScheduleRow(e,i+1,groupId,role)).join('');
+      }
+    }
+    toast('Jadval yangilandi', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function showAddSchedule(groupId) {
+  const m = modal(`
+    <h3 class="modal-title"><i class="fas fa-table" style="color:var(--accent)"></i> Jadval Yaratish</h3>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="input-group">
+        <label class="input-label">Fan nomi</label>
+        <input class="input" type="text" id="sc-name" placeholder="Python, Django, JavaScript...">
+      </div>
+      <div class="form-grid">
+        <div class="input-group">
+          <label class="input-label">Boshlanish</label>
+          <input class="input" type="date" id="sc-start">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Tugash</label>
+          <input class="input" type="date" id="sc-end">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Bekor</button>
+      <button class="btn btn-primary" onclick="createSchedule('${groupId}')"><i class="fas fa-magic"></i> Yaratish</button>
+    </div>
+  `);
+}
+
+async function createSchedule(groupId) {
+  const subject_name = el('sc-name').value.trim();
+  const start_date = el('sc-start').value;
+  const end_date = el('sc-end').value;
+  if(!subject_name||!start_date||!end_date) return toast('Barcha maydonlarni to\'ldiring', 'error');
+  try {
+    await api('/schedules', {method:'POST', body:JSON.stringify({group_id:groupId, subject_name, start_date, end_date})});
+    document.querySelector('.modal-backdrop')?.remove();
+    toast('Jadval yaratildi!', 'success');
+    renderSchedule(groupId, 'mentor');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderGroupStudents(groupId) {
+  const c = el('group-tab-content');
+  try {
+    const students = await api(`/mentor/groups/${groupId}/students`);
+    c.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-users" style="color:var(--accent)"></i> O'quvchilar (${students.length})</div>
+        </div>
+        <table class="table">
+          <thead><tr><th>Ism</th><th>Login</th><th>Telefon</th><th>Email</th><th>Qo'shilgan</th></tr></thead>
+          <tbody>${students.map(s=>`
+            <tr>
+              <td><div class="flex items-center gap-1">
+                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;">${initials(s.full_name)}</div>
+                <strong>${s.full_name}</strong>
+              </div></td>
+              <td class="mono text-sm">${s.login}</td>
+              <td class="text-sm">${s.phone||'—'}</td>
+              <td class="text-sm">${s.email}</td>
+              <td class="text-sm" style="color:var(--text3)">${formatDate(s.created_at)}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+// ============================================
+// STUDENT PANEL
+// ============================================
+function showStudentPanel() {
+  hideAll();
+  el('student-panel').classList.remove('hidden');
+  const u = STATE.user;
+  el('student-display-name').textContent = u?.full_name || "O'quvchi";
+  el('student-avatar-letter').textContent = initials(u?.full_name || 'O');
+  studentNav('dashboard');
+}
+
+function studentNav(page) {
+  document.querySelectorAll('[id^="snav-"]').forEach(b=>b.classList.remove('active'));
+  el(`snav-${page}`)?.classList.add('active');
+  const titles = {dashboard:'Dashboard', tasks:'Vazifalar', group:'Guruhim', profile:'Profil'};
+  el('student-page-title').textContent = titles[page] || page;
+  
+  const fns = {
+    dashboard: renderStudentDashboard,
+    tasks: renderStudentTasks,
+    group: renderStudentGroup,
+    profile: renderStudentProfile
+  };
+  fns[page]?.();
+}
+
+async function renderStudentDashboard() {
+  const c = el('student-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const [profile, tasks] = await Promise.all([
+      api('/student/profile'),
+      api('/student/tasks').catch(()=>[])
+    ]);
+    
+    const pending = tasks.filter(t => !t.my_submission && new Date(`${t.deadline_date}T${t.deadline_time}`) > new Date());
+    const completed = tasks.filter(t => t.my_submission);
+    
+    c.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar-big">${initials(profile.full_name)}</div>
+        <div>
+          <div class="profile-name">${profile.full_name}</div>
+          <div class="profile-role">
+            <span class="badge badge-blue"><i class="fas fa-layer-group"></i> ${profile.group_name}</span>
+          </div>
+          <div style="margin-top:8px;color:var(--text3);font-size:12px;">${profile.email}</div>
+        </div>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(251,191,36,0.15);color:var(--yellow)"><i class="fas fa-hourglass-half"></i></div>
+          <div><div class="stat-value">${pending.length}</div><div class="stat-label">Kutilayotgan vazifalar</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(52,211,153,0.15);color:var(--green)"><i class="fas fa-check-circle"></i></div>
+          <div><div class="stat-value">${completed.length}</div><div class="stat-label">Bajarilgan</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(79,142,247,0.15);color:var(--accent)"><i class="fas fa-tasks"></i></div>
+          <div><div class="stat-value">${tasks.length}</div><div class="stat-label">Jami vazifalar</div></div>
+        </div>
+      </div>
+      
+      ${pending.length ? `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-exclamation-circle" style="color:var(--yellow)"></i> Bajarilmagan Vazifalar</div>
+            <button class="btn btn-secondary btn-sm" onclick="studentNav('tasks')">Barchasi</button>
+          </div>
+          ${pending.slice(0,3).map(t => `
+            <div class="task-card" style="cursor:pointer" onclick="studentNav('tasks')">
+              <div class="task-title">${t.title}</div>
+              <div class="task-deadline urgent"><i class="fas fa-clock"></i> ${t.deadline_date} — ${t.deadline_time}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px"><i class="fas fa-calendar-alt" style="color:var(--accent)"></i> Kalendar</div>
+        <div id="student-cal-grid"></div>
+      </div>
+    `;
+    
+    renderCalendarGrid('student-cal-grid', new Date());
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function renderStudentTasks() {
+  const c = el('student-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const tasks = await api('/student/tasks');
+    
+    c.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm active" onclick="filterTasks('all',this)">Barchasi (${tasks.length})</button>
+        <button class="btn btn-secondary btn-sm" onclick="filterTasks('pending',this)">Kutilmoqda (${tasks.filter(t=>!t.my_submission&&new Date(t.deadline_date+'T'+t.deadline_time)>new Date()).length})</button>
+        <button class="btn btn-secondary btn-sm" onclick="filterTasks('done',this)">Bajarilgan (${tasks.filter(t=>t.my_submission).length})</button>
+      </div>
+      <div id="tasks-list">
+        ${tasks.map(t => renderStudentTaskCard(t)).join('') 
+          || '<div class="empty-state"><i class="fas fa-tasks"></i><p>Hali vazifa yo\'q</p></div>'}
+      </div>
+    `;
+    window._allStudentTasks = tasks;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+function filterTasks(filter, btn) {
+  document.querySelectorAll('[onclick^="filterTasks"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const tasks = window._allStudentTasks || [];
+  let filtered;
+  if(filter==='pending') filtered = tasks.filter(t=>!t.my_submission&&new Date(t.deadline_date+'T'+t.deadline_time)>new Date());
+  else if(filter==='done') filtered = tasks.filter(t=>t.my_submission);
+  else filtered = tasks;
+  el('tasks-list').innerHTML = filtered.map(t=>renderStudentTaskCard(t)).join('') || '<div class="empty-state"><p>Topilmadi</p></div>';
+}
+
+function renderStudentTaskCard(task) {
+  const deadline = new Date(`${task.deadline_date}T${task.deadline_time}`);
+  const isPast = deadline < new Date();
+  const isUrgent = !isPast && deadline - Date.now() < 3600000*3;
+  const isDone = !!task.my_submission;
+  
+  return `
+    <div class="task-card">
+      <div class="task-header">
+        <div style="flex:1">
+          <div class="flex items-center gap-1" style="margin-bottom:6px">
+            <div class="task-title">${task.title}</div>
+            ${isDone ? '<span class="badge badge-green"><i class="fas fa-check"></i> Yuborilgan</span>' : ''}
+            ${task.task_type==='inclass'?'<span class="badge badge-yellow"><i class="fas fa-bolt"></i> Darsda</span>':''}
+          </div>
+          <div class="task-desc">${task.description}</div>
+          <div class="task-deadline ${isUrgent?'urgent':''}">
+            <i class="fas fa-clock"></i> ${task.deadline_date} — ${task.deadline_time}
+            ${isPast&&!isDone?'<span class="badge badge-red" style="margin-left:4px">Muddati o\'tgan</span>':''}
+          </div>
+          ${isDone && task.my_submission ? `
+            <div style="margin-top:8px;">
+              <div class="code-block">${escapeHtml(task.my_submission.content).slice(0,200)}${task.my_submission.content.length>200?'...':''}</div>
+              ${task.my_submission.mentor_score ? `<div style="margin-top:8px"><span class="badge badge-green"><i class="fas fa-star"></i> ${task.my_submission.mentor_score} ball</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      ${!isDone && !isPast ? `
+        <div style="margin-top:12px;">
+          <textarea class="input" id="sub-${task.id}" placeholder="Javobingizni yozing yoki kodni joylashtiring..." style="min-height:100px;"></textarea>
+          <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="submitTask('${task.id}')">
+            <i class="fas fa-paper-plane"></i> Yuborish
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+async function submitTask(taskId) {
+  const content = el(`sub-${taskId}`)?.value?.trim();
+  if(!content) return toast('Javob bo\'sh bo\'lishi mumkin emas', 'error');
+  try {
+    await api('/student/submit', {method:'POST', body:JSON.stringify({task_id:taskId, content})});
+    toast('Vazifa muvaffaqiyatli yuborildi!', 'success');
+    renderStudentTasks();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function renderStudentGroup() {
+  const c = el('student-content');
+  c.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  try {
+    const group = await api('/student/group');
+    c.innerHTML = `
+      <div class="card" style="margin-bottom:20px;">
+        <div class="group-icon">📚</div>
+        <div class="group-name">${group.name}</div>
+        <div class="group-meta" style="margin-top:8px">
+          <span class="badge badge-green"><i class="fas fa-circle"></i> Aktiv guruh</span>
+        </div>
+      </div>
+      <div class="group-tabs">
+        <button class="group-tab active" onclick="studentGroupTab('chat','${group.id}')" id="sgtab-chat"><i class="fas fa-comments"></i> Chat</button>
+        <button class="group-tab" onclick="studentGroupTab('schedule','${group.id}')" id="sgtab-schedule"><i class="fas fa-table"></i> Jadval</button>
+      </div>
+      <div id="student-group-content"></div>
+    `;
+    studentGroupTab('chat', group.id);
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+function studentGroupTab(tab, groupId) {
+  document.querySelectorAll('[id^="sgtab-"]').forEach(b=>b.classList.remove('active'));
+  el(`sgtab-${tab}`)?.classList.add('active');
+  const target = el('student-group-content');
+  if(!target) return;
+  
+  if(tab==='chat') {
+    target.innerHTML = `
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-msgs">
+          <div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>
+        </div>
+        <div class="chat-input-area">
+          <input class="input" type="text" id="chat-input" placeholder="Xabar yozing..." 
+            onkeydown="if(event.key==='Enter')sendMessage('${groupId}','student')">
+          <button class="btn btn-primary" onclick="sendMessage('${groupId}','student')">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    `;
+    loadMessages(groupId, 'student');
+  } else {
+    target.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+    renderSchedule(groupId, 'student');
+    // Move content to student-group-content
+    setTimeout(() => {
+      const schedContent = el('group-tab-content');
+      if(schedContent) { target.innerHTML = schedContent.innerHTML; }
+    }, 500);
+  }
+}
+
+async function renderStudentProfile() {
+  const c = el('student-content');
+  try {
+    const profile = await api('/student/profile');
+    c.innerHTML = `
+      <div class="profile-header">
+        <div class="profile-avatar-big">${initials(profile.full_name)}</div>
+        <div>
+          <div class="profile-name">${profile.full_name}</div>
+          <div class="profile-role"><span class="badge badge-blue"><i class="fas fa-layer-group"></i> ${profile.group_name}</span></div>
+        </div>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px"><i class="fas fa-user" style="color:var(--accent)"></i> Shaxsiy ma'lumot</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><div class="text-xs" style="color:var(--text3);margin-bottom:2px">LOGIN</div><div class="mono">${profile.login}</div></div>
+            <div><div class="text-xs" style="color:var(--text3);margin-bottom:2px">EMAIL</div><div>${profile.email}</div></div>
+            <div><div class="text-xs" style="color:var(--text3);margin-bottom:2px">TELEFON</div><div>${profile.phone||'—'}</div></div>
+            <div><div class="text-xs" style="color:var(--text3);margin-bottom:2px">GURUH</div><div><span class="badge badge-blue">${profile.group_name}</span></div></div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px"><i class="fas fa-lock" style="color:var(--accent)"></i> Parol o'zgartirish</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="input-group">
+              <label class="input-label">Eski parol</label>
+              <input class="input" type="password" id="old-pass" placeholder="••••••">
+            </div>
+            <div class="input-group">
+              <label class="input-label">Yangi parol</label>
+              <input class="input" type="password" id="new-pass" placeholder="••••••">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="changePassword()">
+              <i class="fas fa-save"></i> Saqlash
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch(e) { c.innerHTML = `<div class="empty-state"><p>${e.message}</p></div>`; }
+}
+
+async function changePassword() {
+  const old_password = el('old-pass').value;
+  const new_password = el('new-pass').value;
+  if(!old_password||!new_password) return toast('Ikkala maydonni to\'ldiring', 'error');
+  if(new_password.length < 6) return toast('Parol kamida 6 ta belgi', 'error');
+  try {
+    await api('/student/change-password', {method:'POST', body:JSON.stringify({old_password, new_password})});
+    toast('Parol muvaffaqiyatli o\'zgartirildi!', 'success');
+    el('old-pass').value = '';
+    el('new-pass').value = '';
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ============================================
+// INIT
+// ============================================
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    el('loading-screen').style.display = 'none';
+    
+    if(STATE.token && STATE.user) {
+      const role = STATE.user.role;
+      if(role==='admin') showAdminPanel();
+      else if(role==='mentor') showMentorPanel();
+      else showStudentPanel();
+    } else {
+      showLogin();
+    }
+  }, 1600);
+});
+</script>
+</body>
+</html>
