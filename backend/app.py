@@ -349,7 +349,9 @@ def reset_password():
                    'message': f'Tasdiqlash kodi: {code}, Login: {student["login"]}'})
 
 # ===== ADMIN ROUTES =====
-
+@app.route('/')
+def home():
+    return "Backend ishlayapti 🚀"
 @app.route('/api/admin/stats', methods=['GET'])
 @token_required
 def admin_stats(token_data):
