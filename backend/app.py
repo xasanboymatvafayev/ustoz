@@ -109,8 +109,10 @@ def token_required(f):
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
+        # OPTIONS so'rovlarini token tekshirmasdan o'tkazish
         if request.method == 'OPTIONS':
             return jsonify({}), 200
+        
         header = request.headers.get('Authorization', '')
         token = header.replace('Bearer ', '').strip()
         if not token:
@@ -1326,25 +1328,53 @@ def get_calendar(tok):
         return jsonify({'error': str(e)}), 500
 
 # ============= AI REVIEW ENDPOINT =============
+# ============= AI REVIEW ENDPOINT =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
-@token_required
+def ai_review_route():
+    # OPTIONS so'rovlari uchun - CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.status_code = 200
+        return response
+    
+    # POST so'rovlari uchun token tekshirish
+    header = request.headers.get('Authorization', '')
+    token = header.replace('Bearer ', '').strip()
+    if not token:
+        return jsonify({'error': 'Token kerak'}), 401
+    payload = read_token(token)
+    if payload is None:
+        return jsonify({'error': 'Token yaroqsiz'}), 401
+    
+    return ai_review(payload)
+
 def ai_review(tok):
     try:
         import urllib.request as ur
+        
         d = request.json or {}
         code = d.get('code', '')
         sub_id = d.get('submission_id', '')
         title = d.get('task_title', 'Vazifa')
         
+        # API key ni olish
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
         
-        print(f"AI Review - API Key exists: {bool(api_key)}")
+        print(f"=== AI REVIEW START ===")
+        print(f"API Key exists: {bool(api_key)}")
         print(f"Submission ID: {sub_id}")
+        print(f"Code length: {len(code)}")
+        print(f"Task title: {title}")
         
         if not api_key:
             fb = "⚠️ AI kaliti topilmadi. Iltimos, ANTHROPIC_API_KEY ni Railway variables ga qo'shing."
+            print("No API key found")
         else:
             try:
+                # Prompt yaratish
                 prompt = f"""Sen IT Park AI tekshiruvchisisiz.
 Vazifa: {title}
 Talaba javobi:
@@ -1358,11 +1388,16 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
-                payload = json.dumps({
+                # API so'rovi
+                payload_data = {
                     "model": "claude-3-haiku-20240307",
                     "max_tokens": 800,
                     "messages": [{"role": "user", "content": prompt}]
-                }).encode('utf-8')
+                }
+                
+                payload = json.dumps(payload_data).encode('utf-8')
+                
+                print("Sending request to Claude API...")
                 
                 req = ur.Request(
                     'https://api.anthropic.com/v1/messages',
@@ -1378,14 +1413,15 @@ Qisqa va aniq yoz."""
                 with ur.urlopen(req, timeout=60) as r:
                     response_data = json.loads(r.read().decode('utf-8'))
                     fb = response_data['content'][0]['text']
-                    print(f"AI response: {fb[:100]}...")
+                    print(f"AI response received, length: {len(fb)}")
                     
             except ur.error.HTTPError as e:
                 error_msg = e.read().decode('utf-8')
                 print(f"HTTP Error {e.code}: {error_msg}")
                 try:
                     err_json = json.loads(error_msg)
-                    fb = f"AI xato: {err_json.get('error', {}).get('message', str(e))}"
+                    error_detail = err_json.get('error', {}).get('message', str(e))
+                    fb = f"AI xato: {error_detail}"
                 except:
                     fb = f"AI xato: HTTP {e.code} - {error_msg[:200]}"
             except Exception as e:
@@ -1404,12 +1440,17 @@ Qisqa va aniq yoz."""
         except Exception as e:
             print(f"Database error: {e}")
         
-        return jsonify({'feedback': fb})
+        # Response headers
+        response = jsonify({'feedback': fb})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
         
     except Exception as e:
         print(f"AI Review general error: {e}")
         traceback.print_exc()
-        return jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"}), 500
+        response = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 500
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
