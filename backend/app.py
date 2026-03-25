@@ -223,7 +223,6 @@ def init_db():
             cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
             if not cur.fetchone():
                 cur.execute('INSERT INTO groups (id, name) VALUES (%s, %s)', (uid(), g))
-                print(f"Added group: {g}")
         
         conn.commit()
         cur.close()
@@ -503,28 +502,114 @@ def admin_stats(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/admin/mentors', methods=['GET', 'OPTIONS'])
+@app.route('/api/admin/mentors', methods=['GET', 'POST', 'OPTIONS'])
 @token_required
 def admin_mentors(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
+        if tok['role'] != 'admin':
+            return jsonify({'error': "Ruxsat yo'q"}), 403
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        if request.method == 'GET':
+            cur.execute('SELECT id, full_name, phone, groups, created_at, is_active FROM mentors')
+            mentors_list = []
+            for row in cur.fetchall():
+                mentors_list.append({
+                    'id': row[0],
+                    'full_name': row[1],
+                    'phone': row[2],
+                    'groups': row[3],
+                    'created_at': row[4],
+                    'is_active': row[5]
+                })
+            cur.close()
+            conn.close()
+            return jsonify(mentors_list)
+        
+        elif request.method == 'POST':
+            d = request.json or {}
+            full_name = d.get('full_name', '').strip()
+            phone = d.get('phone', '').strip()
+            password = d.get('password', '').strip()
+            groups = d.get('groups', [])
+            
+            if not all([full_name, phone, password]):
+                cur.close()
+                conn.close()
+                return jsonify({'error': "Barcha maydonlarni to'ldiring"}), 400
+            
+            pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            mid = uid()
+            
+            try:
+                cur.execute('INSERT INTO mentors (id, full_name, phone, password_hash, groups) VALUES (%s,%s,%s,%s,%s)',
+                            (mid, full_name, phone, pw_hash, json.dumps(groups)))
+                for g in groups:
+                    cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
+                    ex = cur.fetchone()
+                    if ex:
+                        cur.execute('UPDATE groups SET mentor_id=%s WHERE name=%s', (mid, g))
+                    else:
+                        cur.execute('INSERT INTO groups (id, name, mentor_id) VALUES (%s,%s,%s)', (uid(), g, mid))
+                conn.commit()
+                cur.close()
+                conn.close()
+                return jsonify({'success': True, 'id': mid})
+            except Exception as e:
+                conn.rollback()
+                cur.close()
+                conn.close()
+                return jsonify({'error': 'Bu telefon raqam band'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/mentors/<mid>', methods=['DELETE', 'OPTIONS'])
+@token_required
+def admin_delete_mentor(tok, mid):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id, full_name, phone, groups, created_at, is_active FROM mentors')
-        mentors_list = []
+        cur.execute('UPDATE mentors SET is_active=0 WHERE id=%s', (mid,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/groups', methods=['GET', 'OPTIONS'])
+@token_required
+def admin_groups(tok):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT g.*, m.full_name as mentor_name FROM groups g LEFT JOIN mentors m ON g.mentor_id=m.id WHERE g.is_active=1')
+        groups_list = []
         for row in cur.fetchall():
-            mentors_list.append({
+            groups_list.append({
                 'id': row[0],
-                'full_name': row[1],
-                'phone': row[2],
-                'groups': row[3],
-                'created_at': row[4],
-                'is_active': row[5]
+                'name': row[1],
+                'mentor_id': row[2],
+                'created_at': row[3],
+                'is_active': row[4],
+                'mentor_name': row[5] if len(row) > 5 else None
             })
         cur.close()
         conn.close()
-        return jsonify(mentors_list)
+        return jsonify(groups_list)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -532,6 +617,9 @@ def admin_mentors(tok):
 @token_required
 def admin_students(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -555,33 +643,13 @@ def admin_students(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/admin/groups', methods=['GET', 'OPTIONS'])
-@token_required
-def admin_groups(tok):
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('SELECT g.*, m.full_name as mentor_name FROM groups g LEFT JOIN mentors m ON g.mentor_id=m.id WHERE g.is_active=1')
-        groups_list = []
-        for row in cur.fetchall():
-            groups_list.append({
-                'id': row[0],
-                'name': row[1],
-                'mentor_id': row[2],
-                'created_at': row[3],
-                'is_active': row[4],
-                'mentor_name': row[5] if len(row) > 5 else None
-            })
-        cur.close()
-        conn.close()
-        return jsonify(groups_list)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/admin/calendar', methods=['POST', 'OPTIONS'])
 @token_required
 def admin_calendar_add(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -604,6 +672,9 @@ def admin_calendar_add(tok):
 @token_required
 def mentor_profile(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -635,6 +706,9 @@ def mentor_profile(tok):
 @token_required
 def mentor_groups(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -667,6 +741,9 @@ def mentor_groups(tok):
 @token_required
 def mentor_group_students(tok, gid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM groups WHERE id=%s', (gid,))
@@ -697,6 +774,9 @@ def mentor_group_students(tok, gid):
 @token_required
 def create_task(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -718,6 +798,9 @@ def create_task(tok):
 @token_required
 def get_tasks(tok, gid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM tasks WHERE group_id=%s ORDER BY created_at DESC', (gid,))
@@ -745,6 +828,9 @@ def get_tasks(tok, gid):
 @token_required
 def get_submissions(tok, tid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('''
@@ -777,6 +863,9 @@ def get_submissions(tok, tid):
 @token_required
 def student_profile(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -803,6 +892,9 @@ def student_profile(tok):
 @token_required
 def change_password(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -827,6 +919,9 @@ def change_password(tok):
 @token_required
 def student_group(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -857,6 +952,9 @@ def student_group(tok):
 @token_required
 def student_tasks(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -912,6 +1010,9 @@ def student_tasks(tok):
 @token_required
 def student_submit_task(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -953,6 +1054,9 @@ def student_submit_task(tok):
 @token_required
 def score_submission(tok, sid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -971,6 +1075,9 @@ def score_submission(tok, sid):
 @token_required
 def chat(tok, gid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         
@@ -1017,6 +1124,9 @@ def chat(tok, gid):
 @token_required
 def get_schedules(tok, gid):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM schedules WHERE group_id=%s', (gid,))
@@ -1050,6 +1160,9 @@ def get_schedules(tok, gid):
 @token_required
 def create_schedule(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         from datetime import date as dt, timedelta as td
@@ -1079,6 +1192,9 @@ def create_schedule(tok):
 @token_required
 def get_calendar(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM calendar_events ORDER BY event_date')
@@ -1105,6 +1221,9 @@ def get_calendar(tok):
 @token_required
 def ai_review(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+            
         import urllib.request as ur
         d = request.json or {}
         code = d.get('code', '')
