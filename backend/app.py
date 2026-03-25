@@ -1329,52 +1329,57 @@ def get_calendar(tok):
 
 # ============= AI REVIEW ENDPOINT =============
 # ============= AI REVIEW ENDPOINT =============
+# ============= AI REVIEW ENDPOINT =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
     # OPTIONS so'rovlari uchun - CORS preflight
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.status_code = 200
-        return response
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response, 200
     
     # POST so'rovlari uchun token tekshirish
     header = request.headers.get('Authorization', '')
     token = header.replace('Bearer ', '').strip()
+    
     if not token:
-        return jsonify({'error': 'Token kerak'}), 401
+        response = jsonify({'error': 'Token kerak'})
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        return response, 401
+    
     payload = read_token(token)
     if payload is None:
-        return jsonify({'error': 'Token yaroqsiz'}), 401
+        response = jsonify({'error': 'Token yaroqsiz'})
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        return response, 401
     
     return ai_review(payload)
 
 def ai_review(tok):
     try:
         import urllib.request as ur
+        import urllib.error  # MUHIM: buni qo'shing
         
         d = request.json or {}
         code = d.get('code', '')
         sub_id = d.get('submission_id', '')
         title = d.get('task_title', 'Vazifa')
         
-        # API key ni olish
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
         
         print(f"=== AI REVIEW START ===")
         print(f"API Key exists: {bool(api_key)}")
         print(f"Submission ID: {sub_id}")
         print(f"Code length: {len(code)}")
-        print(f"Task title: {title}")
         
         if not api_key:
             fb = "⚠️ AI kaliti topilmadi. Iltimos, ANTHROPIC_API_KEY ni Railway variables ga qo'shing."
-            print("No API key found")
         else:
             try:
-                # Prompt yaratish
                 prompt = f"""Sen IT Park AI tekshiruvchisisiz.
 Vazifa: {title}
 Talaba javobi:
@@ -1388,7 +1393,6 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
-                # API so'rovi
                 payload_data = {
                     "model": "claude-3-haiku-20240307",
                     "max_tokens": 800,
@@ -1415,8 +1419,8 @@ Qisqa va aniq yoz."""
                     fb = response_data['content'][0]['text']
                     print(f"AI response received, length: {len(fb)}")
                     
-            except ur.error.HTTPError as e:
-                error_msg = e.read().decode('utf-8')
+            except urllib.error.HTTPError as e:  # urllib.error ishlatish kerak
+                error_msg = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
                 print(f"HTTP Error {e.code}: {error_msg}")
                 try:
                     err_json = json.loads(error_msg)
@@ -1440,16 +1444,15 @@ Qisqa va aniq yoz."""
         except Exception as e:
             print(f"Database error: {e}")
         
-        # Response headers
         response = jsonify({'feedback': fb})
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response
         
     except Exception as e:
         print(f"AI Review general error: {e}")
         traceback.print_exc()
         response = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response, 500
 if __name__ == '__main__':
     init_db()
