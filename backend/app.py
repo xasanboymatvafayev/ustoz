@@ -11,11 +11,22 @@ from datetime import datetime, timedelta
 import os
 
 app = Flask(__name__)
-CORS(app, origins="*")
+CORS(app, 
+     origins="*",
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     supports_credentials=False)
 
-SECRET_KEY = "ustoz_yordamchi_secret_2024"
-DB_PATH = "database.db"
-ADMIN_PASSWORD = "sonnet123"
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    return response
+
+SECRET_KEY = os.environ.get('SECRET_KEY', 'ustoz_yordamchi_secret_2024_railway')
+DB_PATH = os.environ.get('DB_PATH', 'database.db')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
 def get_db():
@@ -143,19 +154,27 @@ def generate_code():
     return ''.join(random.choices(string.digits, k=6))
 
 def token_required(f):
+    from functools import wraps
+    @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        auth_header = request.headers.get('Authorization', '')
+        token = auth_header.replace('Bearer ', '').strip()
         if not token:
             return jsonify({'error': 'Token required'}), 401
         try:
             data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             return f(data, *args, **kwargs)
-        except:
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token muddati tugagan, qayta kiring'}), 401
+        except Exception as e:
             return jsonify({'error': 'Invalid token'}), 401
-    decorated.__name__ = f.__name__
     return decorated
 
 # ===== AUTH ROUTES =====
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok', 'message': 'Ustoz Yordamchi API ishlayapti ✅'})
 
 @app.route('/api/auth/check-email', methods=['POST'])
 def check_email():
