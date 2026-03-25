@@ -937,10 +937,19 @@ function toast(msg, type='info') {
 
 function api(endpoint, opts={}) {
   const headers = {'Content-Type':'application/json'};
-  if(STATE.token) headers['Authorization'] = 'Bearer ' + STATE.token;
+  const token = STATE.token || localStorage.getItem('uy_token');
+  if(token) headers['Authorization'] = 'Bearer ' + token;
   return fetch(API + endpoint, {headers, ...opts})
     .then(async r => {
       const data = await r.json();
+      if(r.status === 401) {
+        // Token eskirgan - qayta login
+        STATE.token = null; STATE.user = null;
+        localStorage.removeItem('uy_token');
+        localStorage.removeItem('uy_user');
+        showLogin();
+        throw new Error('Sessiya tugadi. Qayta kiring.');
+      }
       if(!r.ok) throw new Error(data.error || 'Server xatosi');
       return data;
     });
@@ -954,8 +963,8 @@ function logout() {
 }
 
 function saveState() {
-  localStorage.setItem('uy_token', STATE.token);
-  localStorage.setItem('uy_user', JSON.stringify(STATE.user));
+  if(STATE.token) localStorage.setItem('uy_token', STATE.token);
+  if(STATE.user) localStorage.setItem('uy_user', JSON.stringify(STATE.user));
 }
 
 function hideAll() {
@@ -1055,11 +1064,17 @@ function showAdminLogin() {
 
 async function adminLoginSubmit() {
   const pass = el('admin-pass').value;
+  if(!pass) return toast('Parol kiriting', 'error');
   try {
     const data = await api('/auth/admin-login', {
       method:'POST', body:JSON.stringify({password:pass})
     });
-    STATE.token = data.token; STATE.user = data.user; saveState();
+    // Token va user ni saqlash
+    STATE.token = data.token;
+    STATE.user = data.user;
+    localStorage.setItem('uy_token', data.token);
+    localStorage.setItem('uy_user', JSON.stringify(data.user));
+    
     document.querySelector('.modal-backdrop')?.remove();
     toast('Admin paneliga xush kelibsiz!', 'success');
     showAdminPanel();
