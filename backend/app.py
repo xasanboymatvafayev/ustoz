@@ -1329,21 +1329,21 @@ def get_calendar(tok):
 
 # ============= AI REVIEW ENDPOINT =============
 # ============= AI REVIEW ENDPOINT (Gemini) =============
+# ============= AI REVIEW ENDPOINT (Gemini) =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
-    # OPTIONS so'rovlari uchun CORS preflight
+    # OPTIONS so'rovlari - CORS preflight
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
+        response = jsonify({})
         response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         response.headers['Access-Control-Max-Age'] = '86400'
         return response, 200
     
-    # POST so'rovlari uchun token tekshirish
-    header = request.headers.get('Authorization', '')
-    token = header.replace('Bearer ', '').strip()
+    # POST so'rovlari - token tekshirish
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header.replace('Bearer ', '').strip()
     
     if not token:
         response = jsonify({'error': 'Token kerak'})
@@ -1356,16 +1356,16 @@ def ai_review_route():
         response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response, 401
     
-    return ai_review(payload)
+    return handle_ai_review(payload)
 
-def ai_review(tok):
+def handle_ai_review(tok):
     try:
         import requests
         
-        d = request.json or {}
-        code = d.get('code', '')
-        sub_id = d.get('submission_id', '')
-        title = d.get('task_title', 'Vazifa')
+        data = request.json or {}
+        code = data.get('code', '')
+        sub_id = data.get('submission_id', '')
+        title = data.get('task_title', 'Vazifa')
         
         # Gemini API key
         gemini_key = os.environ.get('GEMINI_API_KEY', '')
@@ -1411,6 +1411,7 @@ Qisqa va aniq yoz."""
                     fb = f"AI xato: {response.status_code} - {response.text[:200]}"
                     
             except Exception as e:
+                print(f"Gemini error: {e}")
                 fb = f"AI xato: {str(e)[:100]}"
         
         # Database ga saqlash
@@ -1426,7 +1427,6 @@ Qisqa va aniq yoz."""
         
         response = jsonify({'feedback': fb})
         response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
         
     except Exception as e:
