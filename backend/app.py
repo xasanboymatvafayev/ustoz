@@ -18,13 +18,30 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# CORS ni to'liq sozlash
+CORS(app, 
+     resources={r"/api/*": {
+         "origins": [
+             "https://ustozyordamchiai.vercel.app",
+             "https://ustoz-production.up.railway.app",
+             "http://localhost:3000",
+             "http://localhost:5000",
+             "*"
+         ],
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+         "allow_headers": ["Content-Type", "Authorization", "Accept"],
+         "expose_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True,
+         "max_age": 3600
+     }})
 
 @app.after_request
 def after_request(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
     if request.method == 'OPTIONS':
         response.status_code = 200
     return response
@@ -1313,9 +1330,6 @@ def get_calendar(tok):
 @token_required
 def ai_review(tok):
     try:
-        if request.method == 'OPTIONS':
-            return jsonify({}), 200
-            
         import urllib.request as ur
         d = request.json or {}
         code = d.get('code', '')
@@ -1344,16 +1358,11 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
-                # TO'G'RI - payload ni dict qilib, keyin json.dumps
-                payload_data = {
+                payload = json.dumps({
                     "model": "claude-3-haiku-20240307",
                     "max_tokens": 800,
                     "messages": [{"role": "user", "content": prompt}]
-                }
-                
-                payload = json.dumps(payload_data).encode('utf-8')
-                
-                print(f"Sending request to Claude API...")
+                }).encode('utf-8')
                 
                 req = ur.Request(
                     'https://api.anthropic.com/v1/messages',
@@ -1368,8 +1377,8 @@ Qisqa va aniq yoz."""
                 
                 with ur.urlopen(req, timeout=60) as r:
                     response_data = json.loads(r.read().decode('utf-8'))
-                    print(f"Claude response received")
                     fb = response_data['content'][0]['text']
+                    print(f"AI response: {fb[:100]}...")
                     
             except ur.error.HTTPError as e:
                 error_msg = e.read().decode('utf-8')
@@ -1401,7 +1410,6 @@ Qisqa va aniq yoz."""
         print(f"AI Review general error: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"}), 500
-
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
