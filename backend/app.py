@@ -1330,57 +1330,51 @@ def get_calendar(tok):
 # ============= AI REVIEW ENDPOINT =============
 # ============= AI REVIEW ENDPOINT =============
 # ============= AI REVIEW ENDPOINT =============
+# ============= AI REVIEW ENDPOINT (Gemini) =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
-    # OPTIONS so'rovlari uchun - CORS preflight
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Max-Age'] = '3600'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return response, 200
     
-    # POST so'rovlari uchun token tekshirish
     header = request.headers.get('Authorization', '')
     token = header.replace('Bearer ', '').strip()
     
     if not token:
         response = jsonify({'error': 'Token kerak'})
-        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        response.headers['Access-Control-Allow-Origin'] = '*'
         return response, 401
     
     payload = read_token(token)
     if payload is None:
         response = jsonify({'error': 'Token yaroqsiz'})
-        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        response.headers['Access-Control-Allow-Origin'] = '*'
         return response, 401
     
     return ai_review(payload)
 
 def ai_review(tok):
     try:
-        import urllib.request as ur
-        import urllib.error  # MUHIM: buni qo'shing
+        import requests
         
         d = request.json or {}
         code = d.get('code', '')
         sub_id = d.get('submission_id', '')
         title = d.get('task_title', 'Vazifa')
         
-        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        # Gemini API key - bepul
+        gemini_key = os.environ.get('GEMINI_API_KEY', '')
         
-        print(f"=== AI REVIEW START ===")
-        print(f"API Key exists: {bool(api_key)}")
-        print(f"Submission ID: {sub_id}")
-        print(f"Code length: {len(code)}")
-        
-        if not api_key:
-            fb = "⚠️ AI kaliti topilmadi. Iltimos, ANTHROPIC_API_KEY ni Railway variables ga qo'shing."
+        if not gemini_key:
+            fb = """⚠️ AI kaliti topilmadi. Bepul API key olish:
+1. https://aistudio.google.com/apikey
+2. Create API key
+3. Railway variables ga GEMINI_API_KEY qo'shing"""
         else:
-            try:
-                prompt = f"""Sen IT Park AI tekshiruvchisisiz.
+            prompt = f"""Sen IT Park AI tekshiruvchisisiz.
 Vazifa: {title}
 Talaba javobi:
 {code[:2000]}
@@ -1392,68 +1386,40 @@ O'zbek tilida:
 4. Tavsiyalar
 
 Qisqa va aniq yoz."""
-                
-                payload_data = {
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 800,
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-                
-                payload = json.dumps(payload_data).encode('utf-8')
-                
-                print("Sending request to Claude API...")
-                
-                req = ur.Request(
-                    'https://api.anthropic.com/v1/messages',
-                    data=payload,
-                    headers={
-                        'Content-Type': 'application/json',
-                        'anthropic-version': '2023-06-01',
-                        'x-api-key': api_key
-                    },
-                    method='POST'
-                )
-                
-                with ur.urlopen(req, timeout=60) as r:
-                    response_data = json.loads(r.read().decode('utf-8'))
-                    fb = response_data['content'][0]['text']
-                    print(f"AI response received, length: {len(fb)}")
-                    
-            except urllib.error.HTTPError as e:  # urllib.error ishlatish kerak
-                error_msg = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
-                print(f"HTTP Error {e.code}: {error_msg}")
-                try:
-                    err_json = json.loads(error_msg)
-                    error_detail = err_json.get('error', {}).get('message', str(e))
-                    fb = f"AI xato: {error_detail}"
-                except:
-                    fb = f"AI xato: HTTP {e.code} - {error_msg[:200]}"
-            except Exception as e:
-                print(f"General error: {e}")
-                fb = f"AI xato: {str(e)[:100]}"
+            
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }]
+            }
+            
+            response = requests.post(
+                f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}',
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                fb = data['candidates'][0]['content']['parts'][0]['text']
+            else:
+                fb = f"AI xato: {response.status_code}"
         
-        # Database ga saqlash
-        try:
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
-            conn.commit()
-            cur.close()
-            conn.close()
-            print(f"AI feedback saved for submission {sub_id}")
-        except Exception as e:
-            print(f"Database error: {e}")
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
+        conn.commit()
+        cur.close()
+        conn.close()
         
-        response = jsonify({'feedback': fb})
-        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
-        return response
+        resp = jsonify({'feedback': fb})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp
         
     except Exception as e:
-        print(f"AI Review general error: {e}")
-        traceback.print_exc()
-        response = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
-        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
-        return response, 500
+        resp = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp, 500
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
