@@ -13,9 +13,10 @@ import os
 app = Flask(__name__)
 CORS(app, origins="*")
 
-SECRET_KEY = "ustoz_yordamchi_ai_secret_2024"
+SECRET_KEY = "ustoz_yordamchi_secret_2024"
 DB_PATH = "database.db"
 ADMIN_PASSWORD = "sonnet123"
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -349,9 +350,7 @@ def reset_password():
                    'message': f'Tasdiqlash kodi: {code}, Login: {student["login"]}'})
 
 # ===== ADMIN ROUTES =====
-@app.route('/')
-def home():
-    return "Backend ishlayapti 🚀"
+
 @app.route('/api/admin/stats', methods=['GET'])
 @token_required
 def admin_stats(token_data):
@@ -757,24 +756,6 @@ def student_tasks(token_data):
     conn.close()
     return jsonify(tasks)
 
-def seed_data():
-    conn = get_db()
-    default_groups = ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']
-    for g in default_groups:
-        existing = conn.execute('SELECT id FROM groups WHERE name = ?', (g,)).fetchone()
-        if not existing:
-            conn.execute('INSERT INTO groups (id, name) VALUES (?, ?)', (str(uuid.uuid4()), g))
-    conn.commit()
-    conn.close()
-
-if __name__ == '__main__':
-    init_db()
-    seed_data() 
-    
-    print("✅ Ustoz Yordamchi Backend ishga tushdi: http://localhost:8080")
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
-
 # ===== AI REVIEW (calls Anthropic API) =====
 @app.route('/api/ai-review', methods=['POST'])
 @token_required
@@ -785,12 +766,37 @@ def ai_review(token_data):
     data = request.json
     code = data.get('code', '')
     sub_id = data.get('submission_id', '')
+    task_title = data.get('task_title', 'Vazifa')
     
-    # Try to call Anthropic API for AI review
+    api_key = ANTHROPIC_API_KEY or os.environ.get('ANTHROPIC_API_KEY', '')
+    
+    if not api_key:
+        feedback = "⚠️ Anthropic API kalit kiritilmagan. ANTHROPIC_API_KEY environment variable qo'ying."
+        conn = get_db()
+        conn.execute('UPDATE submissions SET ai_feedback = ? WHERE id = ?', (feedback, sub_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'feedback': feedback})
+    
+    prompt = f"""Siz IT Park o'quv markazining AI tekshiruvchisisiz. Quyidagi talaba javobini ko'rib chiqing.
+
+Vazifa: {task_title}
+
+Talaba javobi / Kodi:
+{code[:2000]}
+
+Quyidagilarni o'zbek tilida baholang:
+1. **Umumiy baho** (0-100 ball)
+2. **Kuchli tomonlari** - nima yaxshi bajarilgan
+3. **Zaif tomonlari** - nima yaxshilanishi kerak
+4. **Tavsiyalar** - qanday rivojlanish mumkin
+
+Qisqa va aniq yozing (200-300 so'z)."""
+
     payload = {
         "model": "claude-sonnet-4-20250514",
-        "max_tokens": 500,
-        "messages": [{"role": "user", "content": f"Quyidagi kodni ko'rib chiqing va o'zbek tilida qisqacha baholang. Kuchli va zaif tomonlarini ayting. Ball (0-100) bering.\n\nKod:\n{code[:1000]}"}]
+        "max_tokens": 1000,
+        "messages": [{"role": "user", "content": prompt}]
     }
     
     try:
@@ -800,25 +806,34 @@ def ai_review(token_data):
             headers={
                 'Content-Type': 'application/json',
                 'anthropic-version': '2023-06-01',
-                'x-api-key': os.environ.get('ANTHROPIC_API_KEY', '')
+                'x-api-key': api_key
             },
             method='POST'
         )
-        with urllib.request.urlopen(req, timeout=30) as response:
-            result = json_mod.loads(response.read())
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json_mod.loads(resp.read())
             feedback = result['content'][0]['text']
-            
-            # Save to DB
-            conn = get_db()
-            conn.execute('UPDATE submissions SET ai_feedback = ? WHERE id = ?', (feedback, sub_id))
-            conn.commit()
-            conn.close()
-            return jsonify({'feedback': feedback})
     except Exception as e:
-        # Fallback feedback
-        feedback = f"Kod tahlil qilindi. Asosiy fikr: kod to'g'ri yozilgan ko'rinadi. Sinxron va aniq strukturaga ega. AI xizmati vaqtincha mavjud emas: {str(e)[:100]}"
-        conn = get_db()
-        conn.execute('UPDATE submissions SET ai_feedback = ? WHERE id = ?', (feedback, sub_id))
-        conn.commit()
-        conn.close()
-        return jsonify({'feedback': feedback})
+        feedback = f"🤖 AI vaqtincha mavjud emas ({str(e)[:80]}). Mentor tomonidan tekshiriladi."
+    
+    conn = get_db()
+    conn.execute('UPDATE submissions SET ai_feedback = ? WHERE id = ?', (feedback, sub_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'feedback': feedback})
+
+if __name__ == '__main__':
+    init_db()
+    
+    # Add some default groups
+    conn = get_db()
+    default_groups = ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']
+    for g in default_groups:
+        existing = conn.execute('SELECT id FROM groups WHERE name = ?', (g,)).fetchone()
+        if not existing:
+            conn.execute('INSERT INTO groups (id, name) VALUES (?, ?)', (str(uuid.uuid4()), g))
+    conn.commit()
+    conn.close()
+    
+    print("✅ Ustoz Yordamchi Backend ishga tushdi: http://localhost:5000")
+    app.run(debug=True, port=5000)
