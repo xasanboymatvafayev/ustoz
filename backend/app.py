@@ -1327,8 +1327,6 @@ def get_calendar(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ============= AI REVIEW ENDPOINT =============
-# ============= AI REVIEW ENDPOINT (Gemini) =============
 # ============= AI REVIEW ENDPOINT (Gemini) =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
@@ -1392,14 +1390,16 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
+                # TO'G'RI MODEL NOMI
                 payload = {
                     "contents": [{
                         "parts": [{"text": prompt}]
                     }]
                 }
                 
+                # Model nomi: gemini-1.5-pro (yoki gemini-pro)
                 response = requests.post(
-                    f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}',
+                    f'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={gemini_key}',
                     json=payload,
                     timeout=60
                 )
