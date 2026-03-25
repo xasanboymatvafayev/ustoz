@@ -11,6 +11,7 @@ import hmac
 import base64
 from datetime import datetime, timedelta
 import os
+import sys
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -27,7 +28,20 @@ def after_request(response):
 SECRET_KEY = os.environ.get('SECRET_KEY', 'ustoz2024secret')
 ADMIN_PASS = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 AI_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-DB_PATH = os.environ.get('DATABASE_PATH', 'database.db')
+
+# Database path - Railway volume uchun
+DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
+DB_PATH = os.environ.get('DATABASE_PATH', os.path.join(DATA_DIR, 'database.db'))
+
+# Create data directory if it doesn't exist
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    print(f"✅ Data directory created: {DATA_DIR}")
+except Exception as e:
+    print(f"⚠️ Could not create data directory: {e}")
+
+print(f"📁 Database path: {DB_PATH}")
+print(f"📁 Data directory exists: {os.path.exists(DATA_DIR)}")
 
 def make_token(payload):
     body = base64.b64encode(json.dumps(payload).encode()).decode()
@@ -67,9 +81,13 @@ def days(n=30):
     return (datetime.now() + timedelta(days=n)).timestamp()
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except Exception as e:
+        print(f"❌ Database connection error: {e}")
+        raise
 
 def uid():
     return str(uuid.uuid4())
@@ -82,80 +100,171 @@ def exp15():
 
 def init_db():
     try:
+        print("🔄 Initializing database...")
         conn = get_db()
-        conn.executescript('''
+        
+        # Create tables one by one
+        conn.execute('''
         CREATE TABLE IF NOT EXISTS students (
-            id TEXT PRIMARY KEY, login TEXT UNIQUE NOT NULL, full_name TEXT NOT NULL,
-            phone TEXT NOT NULL, email TEXT UNIQUE NOT NULL, group_name TEXT NOT NULL,
-            password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, is_active INTEGER DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS mentors (
-            id TEXT PRIMARY KEY, full_name TEXT NOT NULL, phone TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL, groups TEXT DEFAULT "[]",
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP, is_active INTEGER DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS groups (
-            id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, mentor_id TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP, is_active INTEGER DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT PRIMARY KEY, group_id TEXT NOT NULL, mentor_id TEXT NOT NULL,
-            title TEXT NOT NULL, description TEXT NOT NULL, deadline_date TEXT NOT NULL,
-            deadline_time TEXT NOT NULL, task_type TEXT DEFAULT "homework",
-            duration_minutes INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS submissions (
-            id TEXT PRIMARY KEY, task_id TEXT NOT NULL, student_id TEXT NOT NULL,
-            content TEXT NOT NULL, submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            ai_feedback TEXT, mentor_score INTEGER
-        );
-        CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY, group_id TEXT NOT NULL, sender_id TEXT NOT NULL,
-            sender_type TEXT NOT NULL, sender_name TEXT NOT NULL, content TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS schedules (
-            id TEXT PRIMARY KEY, group_id TEXT NOT NULL, subject_name TEXT NOT NULL,
-            start_date TEXT NOT NULL, end_date TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS schedule_entries (
-            id TEXT PRIMARY KEY, schedule_id TEXT NOT NULL, date TEXT NOT NULL, topic TEXT
-        );
-        CREATE TABLE IF NOT EXISTS verification_codes (
-            id TEXT PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL,
-            purpose TEXT NOT NULL, expires_at TEXT NOT NULL, used INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS calendar_events (
-            id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT,
-            event_date TEXT NOT NULL, event_time TEXT, group_id TEXT,
-            created_by TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
+            id TEXT PRIMARY KEY,
+            login TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            group_name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
         ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS mentors (
+            id TEXT PRIMARY KEY,
+            full_name TEXT NOT NULL,
+            phone TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            groups TEXT DEFAULT "[]",
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS groups (
+            id TEXT PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            mentor_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            mentor_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            deadline_date TEXT NOT NULL,
+            deadline_time TEXT NOT NULL,
+            task_type TEXT DEFAULT "homework",
+            duration_minutes INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS submissions (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            student_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            ai_feedback TEXT,
+            mentor_score INTEGER
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            sender_type TEXT NOT NULL,
+            sender_name TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS schedules (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            subject_name TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS schedule_entries (
+            id TEXT PRIMARY KEY,
+            schedule_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            topic TEXT
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS verification_codes (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0
+        )
+        ''')
+        
+        conn.execute('''
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            event_date TEXT NOT NULL,
+            event_time TEXT,
+            group_id TEXT,
+            created_by TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
         conn.commit()
         
-        for g in ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']:
-            if not conn.execute('SELECT id FROM groups WHERE name=?', (g,)).fetchone():
-                conn.execute('INSERT INTO groups (id,name) VALUES (?,?)', (uid(), g))
+        # Insert default groups
+        default_groups = ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']
+        for g in default_groups:
+            existing = conn.execute('SELECT id FROM groups WHERE name=?', (g,)).fetchone()
+            if not existing:
+                conn.execute('INSERT INTO groups (id, name) VALUES (?, ?)', (uid(), g))
+                print(f"  ✅ Added group: {g}")
         
         conn.commit()
+        
+        # Verify tables
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        print(f"✅ Tables created: {[t['name'] for t in tables]}")
+        
         conn.close()
         print("✅ Database initialized successfully")
         return True
     except Exception as e:
         print(f"❌ Database init error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
+# ============= HEALTH =============
 @app.route('/api/health')
 def health():
     try:
         conn = get_db()
         conn.execute('SELECT 1')
         conn.close()
-        return jsonify({'status': 'ok', 'message': 'Ustoz Yordamchi ishlayapti'})
+        return jsonify({
+            'status': 'ok',
+            'message': 'Ustoz Yordamchi ishlayapti',
+            'database_path': DB_PATH,
+            'database_exists': os.path.exists(DB_PATH)
+        })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ============= AUTH ENDPOINTS =============
 @app.route('/api/auth/check-email', methods=['POST', 'OPTIONS'])
 def check_email():
     try:
@@ -311,6 +420,7 @@ def reset_password():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============= ADMIN ENDPOINTS =============
 @app.route('/api/admin/stats', methods=['GET', 'OPTIONS'])
 @token_required
 def admin_stats(tok):
@@ -363,6 +473,7 @@ def admin_students(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============= MENTOR ENDPOINTS =============
 @app.route('/api/mentor/profile', methods=['GET', 'OPTIONS'])
 @token_required
 def mentor_profile(tok):
@@ -401,6 +512,7 @@ def mentor_groups(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============= STUDENT ENDPOINTS =============
 @app.route('/api/student/profile', methods=['GET', 'OPTIONS'])
 @token_required
 def student_profile(tok):
@@ -559,7 +671,8 @@ def ai_review(tok):
         return jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"}), 500
 
 if __name__ == '__main__':
+    # Initialize database
     init_db()
     port = int(os.environ.get('PORT', 8080))
-    print(f"Server: http://0.0.0.0:{port}")
+    print(f"🚀 Server running on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
