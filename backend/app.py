@@ -12,7 +12,7 @@ import hmac
 import base64
 from datetime import datetime, timedelta
 import os
-import urllib.parse
+import traceback
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -26,178 +26,10 @@ def after_request(response):
         response.status_code = 200
     return response
 
-SECRET_KEY = 'ustoz2024secret'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'ustoz2024secret')
 ADMIN_PASS = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 AI_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-
-# PostgreSQL connection
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/ustoz_db')
-
-def get_db():
-    """Get PostgreSQL connection"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False
-        return conn
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        raise
-
-def init_db():
-    """Initialize PostgreSQL database"""
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        
-        # Students table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id TEXT PRIMARY KEY,
-            login TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            group_name TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active INTEGER DEFAULT 1
-        )
-        ''')
-        
-        # Mentors table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS mentors (
-            id TEXT PRIMARY KEY,
-            full_name TEXT NOT NULL,
-            phone TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            groups TEXT DEFAULT '[]',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active INTEGER DEFAULT 1
-        )
-        ''')
-        
-        # Groups table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS groups (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE NOT NULL,
-            mentor_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active INTEGER DEFAULT 1
-        )
-        ''')
-        
-        # Tasks table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT PRIMARY KEY,
-            group_id TEXT NOT NULL,
-            mentor_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            deadline_date TEXT NOT NULL,
-            deadline_time TEXT NOT NULL,
-            task_type TEXT DEFAULT 'homework',
-            duration_minutes INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
-        # Submissions table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS submissions (
-            id TEXT PRIMARY KEY,
-            task_id TEXT NOT NULL,
-            student_id TEXT NOT NULL,
-            content TEXT NOT NULL,
-            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            ai_feedback TEXT,
-            mentor_score INTEGER
-        )
-        ''')
-        
-        # Messages table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id TEXT PRIMARY KEY,
-            group_id TEXT NOT NULL,
-            sender_id TEXT NOT NULL,
-            sender_type TEXT NOT NULL,
-            sender_name TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
-        # Schedules table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS schedules (
-            id TEXT PRIMARY KEY,
-            group_id TEXT NOT NULL,
-            subject_name TEXT NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
-        # Schedule entries table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS schedule_entries (
-            id TEXT PRIMARY KEY,
-            schedule_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            topic TEXT
-        )
-        ''')
-        
-        # Verification codes table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS verification_codes (
-            id TEXT PRIMARY KEY,
-            email TEXT NOT NULL,
-            code TEXT NOT NULL,
-            purpose TEXT NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
-            used INTEGER DEFAULT 0
-        )
-        ''')
-        
-        # Calendar events table
-        cur.execute('''
-        CREATE TABLE IF NOT EXISTS calendar_events (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            description TEXT,
-            event_date TEXT NOT NULL,
-            event_time TEXT,
-            group_id TEXT,
-            created_by TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        
-        conn.commit()
-        
-        # Insert default groups
-        default_groups = ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']
-        for g in default_groups:
-            cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
-            if not cur.fetchone():
-                cur.execute('INSERT INTO groups (id, name) VALUES (%s, %s)', (str(uuid.uuid4()), g))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        print("✅ PostgreSQL database initialized successfully")
-        return True
-    except Exception as e:
-        print(f"❌ Database init error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 def make_token(payload):
     body = base64.b64encode(json.dumps(payload).encode()).decode()
@@ -236,6 +68,17 @@ def token_required(f):
 def days(n=30):
     return (datetime.now() + timedelta(days=n)).timestamp()
 
+def get_db():
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL environment variable not set")
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        raise
+
 def uid():
     return str(uuid.uuid4())
 
@@ -245,7 +88,147 @@ def code6():
 def exp15():
     return (datetime.now() + timedelta(minutes=15)).isoformat()
 
-# HEALTH
+def init_db():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS students (
+            id TEXT PRIMARY KEY,
+            login TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            group_name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS mentors (
+            id TEXT PRIMARY KEY,
+            full_name TEXT NOT NULL,
+            phone TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            groups TEXT DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS groups (
+            id TEXT PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            mentor_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            mentor_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            deadline_date TEXT NOT NULL,
+            deadline_time TEXT NOT NULL,
+            task_type TEXT DEFAULT 'homework',
+            duration_minutes INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS submissions (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            student_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ai_feedback TEXT,
+            mentor_score INTEGER
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            sender_type TEXT NOT NULL,
+            sender_name TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS schedules (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL,
+            subject_name TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS schedule_entries (
+            id TEXT PRIMARY KEY,
+            schedule_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            topic TEXT
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS verification_codes (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0
+        )
+        ''')
+        
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            event_date TEXT NOT NULL,
+            event_time TEXT,
+            group_id TEXT,
+            created_by TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.commit()
+        
+        default_groups = ['Python-1', 'Python-2', 'Django-1', 'JavaScript-1', 'React-1']
+        for g in default_groups:
+            cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
+            if not cur.fetchone():
+                cur.execute('INSERT INTO groups (id, name) VALUES (%s, %s)', (uid(), g))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Database initialized successfully")
+        return True
+    except Exception as e:
+        print(f"Database init error: {e}")
+        return False
+
 @app.route('/api/health')
 def health():
     try:
@@ -254,15 +237,10 @@ def health():
         cur.execute('SELECT 1')
         cur.close()
         conn.close()
-        return jsonify({
-            'status': 'ok',
-            'message': 'Ustoz Yordamchi ishlayapti',
-            'database': 'PostgreSQL connected'
-        })
+        return jsonify({'status': 'ok', 'message': 'Ustoz Yordamchi ishlayapti'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# AUTH ENDPOINTS
 @app.route('/api/auth/check-email', methods=['POST', 'OPTIONS'])
 def check_email():
     try:
@@ -287,10 +265,8 @@ def send_verification():
         conn = get_db()
         cur = conn.cursor()
         cur.execute('DELETE FROM verification_codes WHERE email=%s AND purpose=%s', (email, purpose))
-        cur.execute(
-            'INSERT INTO verification_codes (id,email,code,purpose,expires_at) VALUES (%s,%s,%s,%s,%s)',
-            (uid(), email, code, purpose, exp15())
-        )
+        cur.execute('INSERT INTO verification_codes (id,email,code,purpose,expires_at) VALUES (%s,%s,%s,%s,%s)',
+                     (uid(), email, code, purpose, exp15()))
         conn.commit()
         cur.close()
         conn.close()
@@ -307,11 +283,8 @@ def verify_code():
         purpose = d.get('purpose', 'register')
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            'SELECT id FROM verification_codes WHERE email=%s AND code=%s AND purpose=%s AND used=0 AND expires_at>%s',
-            (email, code, purpose, datetime.now().isoformat())
-        )
-        row = cur.fetchone()
+        row = cur.execute('SELECT id FROM verification_codes WHERE email=%s AND code=%s AND purpose=%s AND used=0 AND expires_at>%s',
+                          (email, code, purpose, datetime.now().isoformat())).fetchone()
         if not row:
             cur.close()
             conn.close()
@@ -341,23 +314,17 @@ def register():
         conn = get_db()
         cur = conn.cursor()
         
-        # Check login
-        cur.execute('SELECT id FROM students WHERE login=%s', (login,))
-        if cur.fetchone():
+        if cur.execute('SELECT id FROM students WHERE login=%s', (login,)).fetchone():
             cur.close()
             conn.close()
             return jsonify({'error': 'Bu login band'}), 400
         
-        # Check email
-        cur.execute('SELECT id FROM students WHERE email=%s', (email,))
-        if cur.fetchone():
+        if cur.execute('SELECT id FROM students WHERE email=%s', (email,)).fetchone():
             cur.close()
             conn.close()
             return jsonify({'error': "Bu email allaqachon ro'yxatdan o'tgan", 'email_exists': True}), 400
         
-        # Check group
-        cur.execute('SELECT id FROM groups WHERE name=%s', (group_name,))
-        grp = cur.fetchone()
+        grp = cur.execute('SELECT id FROM groups WHERE name=%s', (group_name,)).fetchone()
         if not grp:
             cur.execute('SELECT name FROM groups WHERE is_active=1')
             gs = [row[0] for row in cur.fetchall()]
@@ -368,25 +335,14 @@ def register():
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         sid = uid()
         
-        cur.execute(
-            'INSERT INTO students (id,login,full_name,phone,email,group_name,password_hash) VALUES (%s,%s,%s,%s,%s,%s,%s)',
-            (sid, login, full_name, phone, email, group_name, pw_hash)
-        )
+        cur.execute('INSERT INTO students (id,login,full_name,phone,email,group_name,password_hash) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                     (sid, login, full_name, phone, email, group_name, pw_hash))
         conn.commit()
         cur.close()
         conn.close()
         
         token = make_token({'id': sid, 'role': 'student', 'exp': days(30)})
-        return jsonify({
-            'token': token,
-            'user': {
-                'id': sid,
-                'full_name': full_name,
-                'email': email,
-                'group_name': group_name,
-                'role': 'student'
-            }
-        })
+        return jsonify({'token': token, 'user': {'id': sid, 'full_name': full_name, 'email': email, 'group_name': group_name, 'role': 'student'}})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -402,21 +358,10 @@ def login():
         s = cur.fetchone()
         cur.close()
         conn.close()
-        
         if not s or not bcrypt.checkpw(pw.encode(), s[6].encode()):
             return jsonify({'error': "Email yoki parol noto'g'ri"}), 401
-        
         token = make_token({'id': s[0], 'role': 'student', 'exp': days(30)})
-        return jsonify({
-            'token': token,
-            'user': {
-                'id': s[0],
-                'full_name': s[2],
-                'email': email,
-                'group_name': s[5],
-                'role': 'student'
-            }
-        })
+        return jsonify({'token': token, 'user': {'id': s[0], 'full_name': s[2], 'email': email, 'group_name': s[5], 'role': 'student'}})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -432,21 +377,10 @@ def mentor_login():
         m = cur.fetchone()
         cur.close()
         conn.close()
-        
         if not m or not bcrypt.checkpw(pw.encode(), m[3].encode()):
             return jsonify({'error': "Telefon yoki parol noto'g'ri"}), 401
-        
         token = make_token({'id': m[0], 'role': 'mentor', 'exp': days(30)})
-        return jsonify({
-            'token': token,
-            'user': {
-                'id': m[0],
-                'full_name': m[1],
-                'phone': phone,
-                'groups': json.loads(m[4]),
-                'role': 'mentor'
-            }
-        })
+        return jsonify({'token': token, 'user': {'id': m[0], 'full_name': m[1], 'phone': phone, 'groups': json.loads(m[4]), 'role': 'mentor'}})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -475,10 +409,8 @@ def reset_password():
             return jsonify({'error': 'Bu email topilmadi'}), 404
         code = code6()
         cur.execute('DELETE FROM verification_codes WHERE email=%s AND purpose=%s', (email, 'reset'))
-        cur.execute(
-            'INSERT INTO verification_codes (id,email,code,purpose,expires_at) VALUES (%s,%s,%s,%s,%s)',
-            (uid(), email, code, 'reset', exp15())
-        )
+        cur.execute('INSERT INTO verification_codes (id,email,code,purpose,expires_at) VALUES (%s,%s,%s,%s,%s)',
+                     (uid(), email, code, 'reset', exp15()))
         conn.commit()
         cur.close()
         conn.close()
@@ -486,7 +418,6 @@ def reset_password():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ADMIN ENDPOINTS
 @app.route('/api/admin/stats', methods=['GET', 'OPTIONS'])
 @token_required
 def admin_stats(tok):
@@ -500,7 +431,16 @@ def admin_stats(tok):
         cur.execute('SELECT COUNT(*) as c FROM mentors')
         mentors = cur.fetchone()[0]
         cur.execute('SELECT g.*,m.full_name as mentor_name FROM groups g LEFT JOIN mentors m ON g.mentor_id=m.id WHERE g.is_active=1')
-        groups = [{'id': row[0], 'name': row[1], 'mentor_id': row[2], 'created_at': row[3], 'is_active': row[4], 'mentor_name': row[5]} for row in cur.fetchall()]
+        groups = []
+        for row in cur.fetchall():
+            groups.append({
+                'id': row[0],
+                'name': row[1],
+                'mentor_id': row[2],
+                'created_at': row[3],
+                'is_active': row[4],
+                'mentor_name': row[5] if len(row) > 5 else None
+            })
         cur.close()
         conn.close()
         return jsonify({'students': students, 'mentors': mentors, 'active_groups': len(groups), 'groups': groups})
@@ -518,7 +458,16 @@ def admin_mentors(tok):
         
         if request.method == 'GET':
             cur.execute('SELECT id,full_name,phone,groups,created_at,is_active FROM mentors')
-            ms = [{'id': row[0], 'full_name': row[1], 'phone': row[2], 'groups': row[3], 'created_at': row[4], 'is_active': row[5]} for row in cur.fetchall()]
+            ms = []
+            for row in cur.fetchall():
+                ms.append({
+                    'id': row[0],
+                    'full_name': row[1],
+                    'phone': row[2],
+                    'groups': row[3],
+                    'created_at': row[4],
+                    'is_active': row[5]
+                })
             cur.close()
             conn.close()
             return jsonify(ms)
@@ -538,13 +487,10 @@ def admin_mentors(tok):
         mid = uid()
         
         try:
-            cur.execute(
-                'INSERT INTO mentors (id,full_name,phone,password_hash,groups) VALUES (%s,%s,%s,%s,%s)',
-                (mid, full_name, phone, pw_hash, json.dumps(groups))
-            )
+            cur.execute('INSERT INTO mentors (id,full_name,phone,password_hash,groups) VALUES (%s,%s,%s,%s,%s)',
+                         (mid, full_name, phone, pw_hash, json.dumps(groups)))
             for g in groups:
-                cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
-                ex = cur.fetchone()
+                ex = cur.execute('SELECT id FROM groups WHERE name=%s', (g,)).fetchone()
                 if ex:
                     cur.execute('UPDATE groups SET mentor_id=%s WHERE name=%s', (mid, g))
                 else:
@@ -553,7 +499,7 @@ def admin_mentors(tok):
             cur.close()
             conn.close()
             return jsonify({'success': True, 'id': mid})
-        except psycopg2.IntegrityError:
+        except Exception as e:
             conn.rollback()
             cur.close()
             conn.close()
@@ -584,7 +530,16 @@ def admin_groups(tok):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT g.*,m.full_name as mentor_name FROM groups g LEFT JOIN mentors m ON g.mentor_id=m.id WHERE g.is_active=1')
-        gs = [{'id': row[0], 'name': row[1], 'mentor_id': row[2], 'created_at': row[3], 'is_active': row[4], 'mentor_name': row[5]} for row in cur.fetchall()]
+        gs = []
+        for row in cur.fetchall():
+            gs.append({
+                'id': row[0],
+                'name': row[1],
+                'mentor_id': row[2],
+                'created_at': row[3],
+                'is_active': row[4],
+                'mentor_name': row[5] if len(row) > 5 else None
+            })
         cur.close()
         conn.close()
         return jsonify(gs)
@@ -600,7 +555,18 @@ def admin_students(tok):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT id,login,full_name,phone,email,group_name,created_at,is_active FROM students')
-        ss = [{'id': row[0], 'login': row[1], 'full_name': row[2], 'phone': row[3], 'email': row[4], 'group_name': row[5], 'created_at': row[6], 'is_active': row[7]} for row in cur.fetchall()]
+        ss = []
+        for row in cur.fetchall():
+            ss.append({
+                'id': row[0],
+                'login': row[1],
+                'full_name': row[2],
+                'phone': row[3],
+                'email': row[4],
+                'group_name': row[5],
+                'created_at': row[6],
+                'is_active': row[7]
+            })
         cur.close()
         conn.close()
         return jsonify(ss)
@@ -617,10 +583,8 @@ def admin_calendar_add(tok):
         eid = uid()
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            'INSERT INTO calendar_events (id,title,description,event_date,event_time,group_id,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s)',
-            (eid, d.get('title'), d.get('description'), d.get('event_date'), d.get('event_time'), d.get('group_id'), 'admin')
-        )
+        cur.execute('INSERT INTO calendar_events (id,title,description,event_date,event_time,group_id,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                     (eid, d.get('title'), d.get('description'), d.get('event_date'), d.get('event_time'), d.get('group_id'), 'admin'))
         conn.commit()
         cur.close()
         conn.close()
@@ -635,14 +599,24 @@ def get_calendar(tok):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM calendar_events ORDER BY event_date')
-        evs = [{'id': row[0], 'title': row[1], 'description': row[2], 'event_date': row[3], 'event_time': row[4], 'group_id': row[5], 'created_by': row[6], 'created_at': row[7]} for row in cur.fetchall()]
+        evs = []
+        for row in cur.fetchall():
+            evs.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'event_date': row[3],
+                'event_time': row[4],
+                'group_id': row[5],
+                'created_by': row[6],
+                'created_at': row[7]
+            })
         cur.close()
         conn.close()
         return jsonify(evs)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# MENTOR ENDPOINTS
 @app.route('/api/mentor/profile', methods=['GET', 'OPTIONS'])
 @token_required
 def mentor_profile(tok):
@@ -708,14 +682,22 @@ def mentor_group_students(tok, gid):
             conn.close()
             return jsonify({'error': 'Guruh topilmadi'}), 404
         cur.execute('SELECT id,login,full_name,phone,email,created_at FROM students WHERE group_name=%s', (g[1],))
-        ss = [{'id': row[0], 'login': row[1], 'full_name': row[2], 'phone': row[3], 'email': row[4], 'created_at': row[5]} for row in cur.fetchall()]
+        ss = []
+        for row in cur.fetchall():
+            ss.append({
+                'id': row[0],
+                'login': row[1],
+                'full_name': row[2],
+                'phone': row[3],
+                'email': row[4],
+                'created_at': row[5]
+            })
         cur.close()
         conn.close()
         return jsonify(ss)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# TASKS ENDPOINTS
 @app.route('/api/mentor/tasks', methods=['POST', 'OPTIONS'])
 @token_required
 def create_task(tok):
@@ -726,10 +708,8 @@ def create_task(tok):
         tid = uid()
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            'INSERT INTO tasks (id,group_id,mentor_id,title,description,deadline_date,deadline_time,task_type,duration_minutes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-            (tid, d['group_id'], tok['id'], d['title'], d['description'], d['deadline_date'], d['deadline_time'], d.get('task_type', 'homework'), d.get('duration_minutes'))
-        )
+        cur.execute('INSERT INTO tasks (id,group_id,mentor_id,title,description,deadline_date,deadline_time,task_type,duration_minutes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                     (tid, d['group_id'], tok['id'], d['title'], d['description'], d['deadline_date'], d['deadline_time'], d.get('task_type', 'homework'), d.get('duration_minutes')))
         conn.commit()
         cur.close()
         conn.close()
@@ -744,7 +724,20 @@ def get_tasks(tok, gid):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM tasks WHERE group_id=%s ORDER BY created_at DESC', (gid,))
-        ts = [{'id': row[0], 'group_id': row[1], 'mentor_id': row[2], 'title': row[3], 'description': row[4], 'deadline_date': row[5], 'deadline_time': row[6], 'task_type': row[7], 'duration_minutes': row[8], 'created_at': row[9]} for row in cur.fetchall()]
+        ts = []
+        for row in cur.fetchall():
+            ts.append({
+                'id': row[0],
+                'group_id': row[1],
+                'mentor_id': row[2],
+                'title': row[3],
+                'description': row[4],
+                'deadline_date': row[5],
+                'deadline_time': row[6],
+                'task_type': row[7],
+                'duration_minutes': row[8],
+                'created_at': row[9]
+            })
         cur.close()
         conn.close()
         return jsonify(ts)
@@ -758,7 +751,19 @@ def get_submissions(tok, tid):
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT s.*,st.full_name,st.login FROM submissions s JOIN students st ON s.student_id=st.id WHERE s.task_id=%s', (tid,))
-        ss = [{'id': row[0], 'task_id': row[1], 'student_id': row[2], 'content': row[3], 'submitted_at': row[4], 'ai_feedback': row[5], 'mentor_score': row[6], 'full_name': row[7], 'login': row[8]} for row in cur.fetchall()]
+        ss = []
+        for row in cur.fetchall():
+            ss.append({
+                'id': row[0],
+                'task_id': row[1],
+                'student_id': row[2],
+                'content': row[3],
+                'submitted_at': row[4],
+                'ai_feedback': row[5],
+                'mentor_score': row[6],
+                'full_name': row[7],
+                'login': row[8]
+            })
         cur.close()
         conn.close()
         return jsonify(ss)
@@ -787,8 +792,7 @@ def submit_task(tok):
             cur.close()
             conn.close()
             return jsonify({'error': "Muddati o'tgan"}), 400
-        cur.execute('SELECT id FROM submissions WHERE task_id=%s AND student_id=%s', (tid, tok['id']))
-        ex = cur.fetchone()
+        ex = cur.execute('SELECT id FROM submissions WHERE task_id=%s AND student_id=%s', (tid, tok['id'])).fetchone()
         if ex:
             cur.execute('UPDATE submissions SET content=%s,submitted_at=CURRENT_TIMESTAMP WHERE id=%s', (content, ex[0]))
             sid = ex[0]
@@ -819,17 +823,25 @@ def score_submission(tok, sid):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# CHAT ENDPOINTS
 @app.route('/api/chat/<gid>', methods=['GET', 'POST', 'OPTIONS'])
 @token_required
 def chat(tok, gid):
     try:
         conn = get_db()
         cur = conn.cursor()
-        
         if request.method == 'GET':
             cur.execute('SELECT * FROM messages WHERE group_id=%s ORDER BY created_at ASC LIMIT 100', (gid,))
-            ms = [{'id': row[0], 'group_id': row[1], 'sender_id': row[2], 'sender_type': row[3], 'sender_name': row[4], 'content': row[5], 'created_at': row[6]} for row in cur.fetchall()]
+            ms = []
+            for row in cur.fetchall():
+                ms.append({
+                    'id': row[0],
+                    'group_id': row[1],
+                    'sender_id': row[2],
+                    'sender_type': row[3],
+                    'sender_name': row[4],
+                    'content': row[5],
+                    'created_at': row[6]
+                })
             cur.close()
             conn.close()
             return jsonify(ms)
@@ -844,10 +856,8 @@ def chat(tok, gid):
             name = m[0] if m else 'Mentor'
         
         mid = uid()
-        cur.execute(
-            'INSERT INTO messages (id,group_id,sender_id,sender_type,sender_name,content) VALUES (%s,%s,%s,%s,%s,%s)',
-            (mid, gid, tok['id'], tok['role'], name, (request.json or {}).get('content', ''))
-        )
+        cur.execute('INSERT INTO messages (id,group_id,sender_id,sender_type,sender_name,content) VALUES (%s,%s,%s,%s,%s,%s)',
+                     (mid, gid, tok['id'], tok['role'], name, (request.json or {}).get('content', '')))
         conn.commit()
         cur.close()
         conn.close()
@@ -855,7 +865,6 @@ def chat(tok, gid):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# SCHEDULE ENDPOINTS
 @app.route('/api/schedules/<gid>', methods=['GET', 'OPTIONS'])
 @token_required
 def get_schedules(tok, gid):
@@ -868,7 +877,9 @@ def get_schedules(tok, gid):
         for row in rows:
             s = {'id': row[0], 'group_id': row[1], 'subject_name': row[2], 'start_date': row[3], 'end_date': row[4], 'created_at': row[5]}
             cur.execute('SELECT * FROM schedule_entries WHERE schedule_id=%s ORDER BY date', (s['id'],))
-            s['entries'] = [{'id': e[0], 'schedule_id': e[1], 'date': e[2], 'topic': e[3]} for e in cur.fetchall()]
+            s['entries'] = []
+            for e in cur.fetchall():
+                s['entries'].append({'id': e[0], 'schedule_id': e[1], 'date': e[2], 'topic': e[3]})
             ss.append(s)
         cur.close()
         conn.close()
@@ -889,14 +900,12 @@ def create_schedule(tok):
         sid = uid()
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            'INSERT INTO schedules (id,group_id,subject_name,start_date,end_date) VALUES (%s,%s,%s,%s,%s)',
-            (sid, d['group_id'], d['subject_name'], d['start_date'], d['end_date'])
-        )
-        cur = start
-        while cur <= end:
-            cur.execute('INSERT INTO schedule_entries (id,schedule_id,date) VALUES (%s,%s,%s)', (uid(), sid, cur.isoformat()))
-            cur += td(days=1)
+        cur.execute('INSERT INTO schedules (id,group_id,subject_name,start_date,end_date) VALUES (%s,%s,%s,%s,%s)',
+                     (sid, d['group_id'], d['subject_name'], d['start_date'], d['end_date']))
+        cur_date = start
+        while cur_date <= end:
+            cur.execute('INSERT INTO schedule_entries (id,schedule_id,date) VALUES (%s,%s,%s)', (uid(), sid, cur_date.isoformat()))
+            cur_date += td(days=1)
         conn.commit()
         cur.close()
         conn.close()
@@ -904,7 +913,6 @@ def create_schedule(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# STUDENT ENDPOINTS
 @app.route('/api/student/profile', methods=['GET', 'OPTIONS'])
 @token_required
 def student_profile(tok):
@@ -992,18 +1000,40 @@ def student_tasks(tok):
             conn.close()
             return jsonify([])
         cur.execute('SELECT * FROM tasks WHERE group_id=%s ORDER BY created_at DESC', (g[0],))
-        ts = [{'id': row[0], 'group_id': row[1], 'mentor_id': row[2], 'title': row[3], 'description': row[4], 'deadline_date': row[5], 'deadline_time': row[6], 'task_type': row[7], 'duration_minutes': row[8], 'created_at': row[9]} for row in cur.fetchall()]
+        ts = []
+        for row in cur.fetchall():
+            ts.append({
+                'id': row[0],
+                'group_id': row[1],
+                'mentor_id': row[2],
+                'title': row[3],
+                'description': row[4],
+                'deadline_date': row[5],
+                'deadline_time': row[6],
+                'task_type': row[7],
+                'duration_minutes': row[8],
+                'created_at': row[9]
+            })
         for t in ts:
             cur.execute('SELECT * FROM submissions WHERE task_id=%s AND student_id=%s', (t['id'], tok['id']))
             sub = cur.fetchone()
-            t['my_submission'] = {'id': sub[0], 'task_id': sub[1], 'student_id': sub[2], 'content': sub[3], 'submitted_at': sub[4], 'ai_feedback': sub[5], 'mentor_score': sub[6]} if sub else None
+            t['my_submission'] = None
+            if sub:
+                t['my_submission'] = {
+                    'id': sub[0],
+                    'task_id': sub[1],
+                    'student_id': sub[2],
+                    'content': sub[3],
+                    'submitted_at': sub[4],
+                    'ai_feedback': sub[5],
+                    'mentor_score': sub[6]
+                }
         cur.close()
         conn.close()
         return jsonify(ts)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# AI REVIEW
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 @token_required
 def ai_review(tok):
