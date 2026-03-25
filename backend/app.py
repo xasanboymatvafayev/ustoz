@@ -13,6 +13,9 @@ import base64
 from datetime import datetime, timedelta
 import os
 import traceback
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -31,8 +34,41 @@ ADMIN_PASS = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 AI_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
+# Email sozlamalari
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USER = os.environ.get('EMAIL_USER', '')
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', '')
+
 print("=== Ustoz Yordamchi AI Starting ===")
 print(f"DATABASE_URL exists: {bool(DATABASE_URL)}")
+print(f"EMAIL_USER exists: {bool(EMAIL_USER)}")
+
+def send_email(to_email, subject, message):
+    """Email yuborish funksiyasi"""
+    if not EMAIL_USER or not EMAIL_PASSWORD:
+        print("Email sozlamalari yo'q")
+        return False
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        msg.attach(MIMEText(message, 'plain', 'utf-8'))
+        
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"Email yuborildi: {to_email}")
+        return True
+    except Exception as e:
+        print(f"Email yuborish xatosi: {e}")
+        return False
 
 def make_token(payload):
     body = base64.b64encode(json.dumps(payload).encode()).decode()
@@ -276,6 +312,7 @@ def send_verification():
         email = d.get('email', '').lower().strip()
         purpose = d.get('purpose', 'register')
         code = code6()
+        
         conn = get_db()
         cur = conn.cursor()
         cur.execute('DELETE FROM verification_codes WHERE email=%s AND purpose=%s', (email, purpose))
@@ -286,7 +323,44 @@ def send_verification():
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({'success': True, 'code': code})
+        
+        # Email yuborish
+        if purpose == 'register':
+            subject = "Ustoz Yordamchi AI - Ro'yxatdan o'tish kodi"
+            message = f"""
+Salom!
+
+Ustoz Yordamchi AI platformasida ro'yxatdan o'tish uchun tasdiqlash kodingiz: {code}
+
+Bu kod 15 daqiqa davomida amal qiladi.
+
+Agar siz ro'yxatdan o'tmagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.
+
+Hurmat bilan,
+Ustoz Yordamchi AI jamoasi
+"""
+        else:
+            subject = "Ustoz Yordamchi AI - Parol tiklash kodi"
+            message = f"""
+Salom!
+
+Parol tiklash uchun tasdiqlash kodingiz: {code}
+
+Bu kod 15 daqiqa davomida amal qiladi.
+
+Agar siz parol tiklashni so'ramagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.
+
+Hurmat bilan,
+Ustoz Yordamchi AI jamoasi
+"""
+        
+        email_sent = send_email(email, subject, message)
+        
+        if email_sent:
+            return jsonify({'success': True, 'code': code, 'email_sent': True})
+        else:
+            return jsonify({'success': True, 'code': code, 'email_sent': False, 'warning': 'Email yuborilmadi, kodni saqlab oling'})
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -468,6 +542,22 @@ def reset_password():
         conn.commit()
         cur.close()
         conn.close()
+        
+        subject = "Ustoz Yordamchi AI - Parol tiklash kodi"
+        message = f"""
+Salom!
+
+Parol tiklash uchun tasdiqlash kodingiz: {code}
+
+Login: {s[1]}
+
+Bu kod 15 daqiqa davomida amal qiladi.
+
+Hurmat bilan,
+Ustoz Yordamchi AI jamoasi
+"""
+        send_email(email, subject, message)
+        
         return jsonify({'success': True, 'code': code, 'login': s[1]})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -477,6 +567,8 @@ def reset_password():
 @token_required
 def admin_stats(tok):
     try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -1230,18 +1322,52 @@ def ai_review(tok):
         sub_id = d.get('submission_id', '')
         title = d.get('task_title', 'Vazifa')
         
-        if not AI_KEY:
-            fb = "AI kaliti yo'q. Railway Variables da ANTHROPIC_API_KEY qo'ying."
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        
+        if not api_key:
+            fb = "⚠️ AI kaliti topilmadi. Iltimos, ANTHROPIC_API_KEY ni Railway variables ga qo'shing."
         else:
-            prompt = f"Sen IT Park AI tekshiruvchisisiz.\nVazifa: {title}\nTalaba javobi:\n{code[:2000]}\n\nO'zbek tilida: 1.Baho(0-100) 2.Kuchli tomonlar 3.Zaif tomonlar 4.Tavsiyalar. Qisqa yoz."
-            payload = json.dumps({"model": "claude-sonnet-4-20250514", "max_tokens": 800, "messages": [{"role": "user", "content": prompt}]}).encode()
-            req = ur.Request('https://api.anthropic.com/v1/messages', data=payload,
-                             headers={'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': AI_KEY}, method='POST')
             try:
+                prompt = f"""Sen IT Park AI tekshiruvchisisiz.
+Vazifa: {title}
+Talaba javobi:
+{code[:2000]}
+
+O'zbek tilida:
+1. Baho (0-100)
+2. Kuchli tomonlar
+3. Zaif tomonlar
+4. Tavsiyalar
+
+Qisqa va aniq yoz."""
+                
+                payload = json.dumps({
+                    "model": "claude-3-5-sonnet-20241022",
+                    "max_tokens": 800,
+                    "messages": [{"role": "user", "content": prompt}]
+                }).encode('utf-8')
+                
+                req = ur.Request(
+                    'https://api.anthropic.com/v1/messages',
+                    data=payload,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'anthropic-version': '2023-06-01',
+                        'x-api-key': api_key
+                    },
+                    method='POST'
+                )
+                
                 with ur.urlopen(req, timeout=30) as r:
-                    fb = json.loads(r.read())['content'][0]['text']
+                    response_data = json.loads(r.read().decode('utf-8'))
+                    fb = response_data['content'][0]['text']
+                    
+            except ur.error.HTTPError as e:
+                error_msg = e.read().decode('utf-8')
+                print(f"HTTP Error: {error_msg}")
+                fb = f"AI xato: {str(e)}. API key yoki model nomini tekshiring."
             except Exception as e:
-                fb = f"AI vaqtincha mavjud emas: {str(e)[:80]}"
+                fb = f"AI xato: {str(e)[:100]}"
         
         conn = get_db()
         cur = conn.cursor()
@@ -1249,7 +1375,9 @@ def ai_review(tok):
         conn.commit()
         cur.close()
         conn.close()
+        
         return jsonify({'feedback': fb})
+        
     except Exception as e:
         return jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"}), 500
 
