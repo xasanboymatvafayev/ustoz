@@ -1324,6 +1324,9 @@ def ai_review(tok):
         
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
         
+        print(f"AI Review - API Key exists: {bool(api_key)}")
+        print(f"Submission ID: {sub_id}")
+        
         if not api_key:
             fb = "⚠️ AI kaliti topilmadi. Iltimos, ANTHROPIC_API_KEY ni Railway variables ga qo'shing."
         else:
@@ -1341,11 +1344,16 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
-                payload = json.dumps({
-                    "model": "claude-3-5-sonnet-20241022",
+                # TO'G'RI - payload ni dict qilib, keyin json.dumps
+                payload_data = {
+                    "model": "claude-3-haiku-20240307",
                     "max_tokens": 800,
                     "messages": [{"role": "user", "content": prompt}]
-                }).encode('utf-8')
+                }
+                
+                payload = json.dumps(payload_data).encode('utf-8')
+                
+                print(f"Sending request to Claude API...")
                 
                 req = ur.Request(
                     'https://api.anthropic.com/v1/messages',
@@ -1358,27 +1366,40 @@ Qisqa va aniq yoz."""
                     method='POST'
                 )
                 
-                with ur.urlopen(req, timeout=30) as r:
+                with ur.urlopen(req, timeout=60) as r:
                     response_data = json.loads(r.read().decode('utf-8'))
+                    print(f"Claude response received")
                     fb = response_data['content'][0]['text']
                     
             except ur.error.HTTPError as e:
                 error_msg = e.read().decode('utf-8')
-                print(f"HTTP Error: {error_msg}")
-                fb = f"AI xato: {str(e)}. API key yoki model nomini tekshiring."
+                print(f"HTTP Error {e.code}: {error_msg}")
+                try:
+                    err_json = json.loads(error_msg)
+                    fb = f"AI xato: {err_json.get('error', {}).get('message', str(e))}"
+                except:
+                    fb = f"AI xato: HTTP {e.code} - {error_msg[:200]}"
             except Exception as e:
+                print(f"General error: {e}")
                 fb = f"AI xato: {str(e)[:100]}"
         
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
-        conn.commit()
-        cur.close()
-        conn.close()
+        # Database ga saqlash
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"AI feedback saved for submission {sub_id}")
+        except Exception as e:
+            print(f"Database error: {e}")
         
         return jsonify({'feedback': fb})
         
     except Exception as e:
+        print(f"AI Review general error: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"}), 500
 
 if __name__ == '__main__':
