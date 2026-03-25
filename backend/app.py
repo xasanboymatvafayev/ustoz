@@ -11,6 +11,38 @@ import hmac
 import base64
 from datetime import datetime, timedelta
 import os
+import sys
+
+
+
+# Railway'da ishga tushganda database ni tekshirish
+print("=== Starting application ===")
+print(f"Current directory: {os.getcwd()}")
+print(f"Files in directory: {os.listdir('.')}")
+
+DB_PATH = '/app/database.db'
+print(f"Database path: {DB_PATH}")
+print(f"Database exists: {os.path.exists(DB_PATH)}")
+
+# Force create database on startup
+try:
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("SELECT 1")
+    conn.close()
+    print("✅ Database connection successful")
+except Exception as e:
+    print(f"❌ Database error: {e}")
+
+
+
+
+
+
+
+
+
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -25,7 +57,6 @@ def after_request(response):
     return response
 
 SECRET_KEY = 'ustoz2024secret'
-DB_PATH    = 'database.db'
 ADMIN_PASS = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 AI_KEY     = os.environ.get('ANTHROPIC_API_KEY', '')
 
