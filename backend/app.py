@@ -38,8 +38,8 @@ CORS(app,
 
 @app.after_request
 def after_request(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     if request.method == 'OPTIONS':
@@ -1328,30 +1328,32 @@ def get_calendar(tok):
         return jsonify({'error': str(e)}), 500
 
 # ============= AI REVIEW ENDPOINT =============
-# ============= AI REVIEW ENDPOINT =============
-# ============= AI REVIEW ENDPOINT =============
 # ============= AI REVIEW ENDPOINT (Gemini) =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
+    # OPTIONS so'rovlari uchun CORS preflight
     if request.method == 'OPTIONS':
-        response = jsonify({})
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response = jsonify({'status': 'ok'})
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Max-Age'] = '86400'
         return response, 200
     
+    # POST so'rovlari uchun token tekshirish
     header = request.headers.get('Authorization', '')
     token = header.replace('Bearer ', '').strip()
     
     if not token:
         response = jsonify({'error': 'Token kerak'})
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response, 401
     
     payload = read_token(token)
     if payload is None:
         response = jsonify({'error': 'Token yaroqsiz'})
-        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response, 401
     
     return ai_review(payload)
@@ -1365,16 +1367,19 @@ def ai_review(tok):
         sub_id = d.get('submission_id', '')
         title = d.get('task_title', 'Vazifa')
         
-        # Gemini API key - bepul
+        # Gemini API key
         gemini_key = os.environ.get('GEMINI_API_KEY', '')
         
         if not gemini_key:
-            fb = """⚠️ AI kaliti topilmadi. Bepul API key olish:
+            fb = """⚠️ AI kaliti topilmadi.
+
+Bepul API key olish:
 1. https://aistudio.google.com/apikey
 2. Create API key
 3. Railway variables ga GEMINI_API_KEY qo'shing"""
         else:
-            prompt = f"""Sen IT Park AI tekshiruvchisisiz.
+            try:
+                prompt = f"""Sen IT Park AI tekshiruvchisisiz.
 Vazifa: {title}
 Talaba javobi:
 {code[:2000]}
@@ -1386,40 +1391,50 @@ O'zbek tilida:
 4. Tavsiyalar
 
 Qisqa va aniq yoz."""
-            
-            payload = {
-                "contents": [{
-                    "parts": [{"text": prompt}]
-                }]
-            }
-            
-            response = requests.post(
-                f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}',
-                json=payload,
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                fb = data['candidates'][0]['content']['parts'][0]['text']
-            else:
-                fb = f"AI xato: {response.status_code}"
+                
+                payload = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }]
+                }
+                
+                response = requests.post(
+                    f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}',
+                    json=payload,
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    fb = data['candidates'][0]['content']['parts'][0]['text']
+                else:
+                    fb = f"AI xato: {response.status_code} - {response.text[:200]}"
+                    
+            except Exception as e:
+                fb = f"AI xato: {str(e)[:100]}"
         
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
-        conn.commit()
-        cur.close()
-        conn.close()
+        # Database ga saqlash
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute('UPDATE submissions SET ai_feedback=%s WHERE id=%s', (fb, sub_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"Database error: {e}")
         
-        resp = jsonify({'feedback': fb})
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp
+        response = jsonify({'feedback': fb})
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
         
     except Exception as e:
-        resp = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp, 500
+        print(f"AI Review error: {e}")
+        traceback.print_exc()
+        response = jsonify({'error': str(e), 'feedback': f"Xato: {str(e)}"})
+        response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
+        return response, 500
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
