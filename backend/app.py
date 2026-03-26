@@ -19,7 +19,6 @@ from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 
-# CORS ni to'liq sozlash
 CORS(app, 
      resources={r"/api/*": {
          "origins": [
@@ -51,7 +50,6 @@ ADMIN_PASS = os.environ.get('ADMIN_PASSWORD', 'sonnet123')
 AI_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-# Email sozlamalari
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USER = os.environ.get('EMAIL_USER', '')
@@ -62,25 +60,20 @@ print(f"DATABASE_URL exists: {bool(DATABASE_URL)}")
 print(f"EMAIL_USER exists: {bool(EMAIL_USER)}")
 
 def send_email(to_email, subject, message):
-    """Email yuborish funksiyasi"""
     if not EMAIL_USER or not EMAIL_PASSWORD:
         print("Email sozlamalari yo'q")
         return False
-    
     try:
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = to_email
         msg['Subject'] = subject
-        
         msg.attach(MIMEText(message, 'plain', 'utf-8'))
-        
         server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-        
         print(f"Email yuborildi: {to_email}")
         return True
     except Exception as e:
@@ -109,10 +102,8 @@ def token_required(f):
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
-        # OPTIONS so'rovlarini token tekshirmasdan o'tkazish
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-        
         header = request.headers.get('Authorization', '')
         token = header.replace('Bearer ', '').strip()
         if not token:
@@ -128,7 +119,7 @@ def days(n=30):
 
 def get_db():
     if not DATABASE_URL:
-        raise Exception("DATABASE_URL not set! Add PostgreSQL to your Railway project.")
+        raise Exception("DATABASE_URL not set!")
     try:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = False
@@ -146,6 +137,35 @@ def code6():
 def exp15():
     return (datetime.now() + timedelta(minutes=15)).isoformat()
 
+def upgrade_db():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        try:
+            cur.execute("ALTER TABLE groups ADD COLUMN schedule_type TEXT DEFAULT 'juft'")
+        except: pass
+        try:
+            cur.execute("ALTER TABLE groups ADD COLUMN schedule_time TEXT DEFAULT '19:00'")
+        except: pass
+        try:
+            cur.execute("ALTER TABLE schedule_entries ADD COLUMN has_task INTEGER DEFAULT 0")
+        except: pass
+        try:
+            cur.execute("ALTER TABLE schedule_entries ADD COLUMN task_id TEXT")
+        except: pass
+        try:
+            cur.execute("ALTER TABLE tasks ADD COLUMN schedule_entry_id TEXT")
+        except: pass
+        try:
+            cur.execute("ALTER TABLE students ADD COLUMN total_score INTEGER DEFAULT 0")
+        except: pass
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Database upgraded!")
+    except Exception as e:
+        print(f"Upgrade error: {e}")
+
 def init_db():
     try:
         print("Initializing PostgreSQL database...")
@@ -162,7 +182,8 @@ def init_db():
             group_name TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active INTEGER DEFAULT 1
+            is_active INTEGER DEFAULT 1,
+            total_score INTEGER DEFAULT 0
         )
         ''')
         
@@ -184,7 +205,9 @@ def init_db():
             name TEXT UNIQUE NOT NULL,
             mentor_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active INTEGER DEFAULT 1
+            is_active INTEGER DEFAULT 1,
+            schedule_type TEXT DEFAULT 'juft',
+            schedule_time TEXT DEFAULT '19:00'
         )
         ''')
         
@@ -199,7 +222,8 @@ def init_db():
             deadline_time TEXT NOT NULL,
             task_type TEXT DEFAULT 'homework',
             duration_minutes INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            schedule_entry_id TEXT
         )
         ''')
         
@@ -211,7 +235,8 @@ def init_db():
             content TEXT NOT NULL,
             submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ai_feedback TEXT,
-            mentor_score INTEGER
+            mentor_score INTEGER,
+            status TEXT DEFAULT 'pending'
         )
         ''')
         
@@ -243,7 +268,9 @@ def init_db():
             id TEXT PRIMARY KEY,
             schedule_id TEXT NOT NULL,
             date TEXT NOT NULL,
-            topic TEXT
+            topic TEXT,
+            has_task INTEGER DEFAULT 0,
+            task_id TEXT
         )
         ''')
         
@@ -277,20 +304,21 @@ def init_db():
         for g in default_groups:
             cur.execute('SELECT id FROM groups WHERE name=%s', (g,))
             if not cur.fetchone():
-                cur.execute('INSERT INTO groups (id, name) VALUES (%s, %s)', (uid(), g))
+                cur.execute('INSERT INTO groups (id, name, schedule_type, schedule_time) VALUES (%s,%s,%s,%s)', (uid(), g, 'juft', '19:00'))
         
         conn.commit()
         cur.close()
         conn.close()
         
-        print("✅ PostgreSQL database initialized successfully!")
+        upgrade_db()
+        
+        print("✅ PostgreSQL database initialized!")
         return True
     except Exception as e:
         print(f"❌ Database init error: {e}")
         traceback.print_exc()
         return False
 
-# ============= HEALTH =============
 @app.route('/api/health')
 def health():
     try:
@@ -343,35 +371,12 @@ def send_verification():
         cur.close()
         conn.close()
         
-        # Email yuborish
         if purpose == 'register':
             subject = "Ustoz Yordamchi AI - Ro'yxatdan o'tish kodi"
-            message = f"""
-Salom!
-
-Ustoz Yordamchi AI platformasida ro'yxatdan o'tish uchun tasdiqlash kodingiz: {code}
-
-Bu kod 15 daqiqa davomida amal qiladi.
-
-Agar siz ro'yxatdan o'tmagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.
-
-Hurmat bilan,
-Ustoz Yordamchi AI jamoasi
-"""
+            message = f"Salom!\n\nUstoz Yordamchi AI platformasida ro'yxatdan o'tish uchun tasdiqlash kodingiz: {code}\n\nBu kod 15 daqiqa davomida amal qiladi.\n\nHurmat bilan,\nUstoz Yordamchi AI jamoasi"
         else:
             subject = "Ustoz Yordamchi AI - Parol tiklash kodi"
-            message = f"""
-Salom!
-
-Parol tiklash uchun tasdiqlash kodingiz: {code}
-
-Bu kod 15 daqiqa davomida amal qiladi.
-
-Agar siz parol tiklashni so'ramagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.
-
-Hurmat bilan,
-Ustoz Yordamchi AI jamoasi
-"""
+            message = f"Salom!\n\nParol tiklash uchun tasdiqlash kodingiz: {code}\n\nBu kod 15 daqiqa davomida amal qiladi.\n\nHurmat bilan,\nUstoz Yordamchi AI jamoasi"
         
         email_sent = send_email(email, subject, message)
         
@@ -379,7 +384,6 @@ Ustoz Yordamchi AI jamoasi
             return jsonify({'success': True, 'code': code, 'email_sent': True})
         else:
             return jsonify({'success': True, 'code': code, 'email_sent': False, 'warning': 'Email yuborilmadi, kodni saqlab oling'})
-            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -563,18 +567,7 @@ def reset_password():
         conn.close()
         
         subject = "Ustoz Yordamchi AI - Parol tiklash kodi"
-        message = f"""
-Salom!
-
-Parol tiklash uchun tasdiqlash kodingiz: {code}
-
-Login: {s[1]}
-
-Bu kod 15 daqiqa davomida amal qiladi.
-
-Hurmat bilan,
-Ustoz Yordamchi AI jamoasi
-"""
+        message = f"Salom!\n\nParol tiklash uchun tasdiqlash kodingiz: {code}\n\nLogin: {s[1]}\n\nBu kod 15 daqiqa davomida amal qiladi.\n\nHurmat bilan,\nUstoz Yordamchi AI jamoasi"
         send_email(email, subject, message)
         
         return jsonify({'success': True, 'code': code, 'login': s[1]})
@@ -605,7 +598,9 @@ def admin_stats(tok):
                 'mentor_id': row[2],
                 'created_at': row[3],
                 'is_active': row[4],
-                'mentor_name': row[5] if len(row) > 5 else None
+                'mentor_name': row[5] if len(row) > 5 else None,
+                'schedule_type': row[6] if len(row) > 6 else 'juft',
+                'schedule_time': row[7] if len(row) > 7 else '19:00'
             })
         cur.close()
         conn.close()
@@ -619,10 +614,8 @@ def admin_mentors(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
-        
         conn = get_db()
         cur = conn.cursor()
         
@@ -685,7 +678,6 @@ def admin_delete_mentor(tok, mid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -704,7 +696,6 @@ def admin_groups(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT g.*, m.full_name as mentor_name FROM groups g LEFT JOIN mentors m ON g.mentor_id=m.id WHERE g.is_active=1')
@@ -716,11 +707,82 @@ def admin_groups(tok):
                 'mentor_id': row[2],
                 'created_at': row[3],
                 'is_active': row[4],
-                'mentor_name': row[5] if len(row) > 5 else None
+                'mentor_name': row[5] if len(row) > 5 else None,
+                'schedule_type': row[6] if len(row) > 6 else 'juft',
+                'schedule_time': row[7] if len(row) > 7 else '19:00'
             })
         cur.close()
         conn.close()
         return jsonify(groups_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/groups/create', methods=['POST', 'OPTIONS'])
+@token_required
+def admin_create_group(tok):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        if tok['role'] != 'admin':
+            return jsonify({'error': "Ruxsat yo'q"}), 403
+        
+        d = request.json or {}
+        name = d.get('name', '').strip()
+        schedule_type = d.get('schedule_type', 'juft')
+        schedule_time = d.get('schedule_time', '19:00')
+        
+        if not name:
+            return jsonify({'error': "Guruh nomi kerak"}), 400
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute('SELECT id FROM groups WHERE name=%s', (name,))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Bu nomdagi guruh allaqachon mavjud'}), 400
+        
+        gid = uid()
+        cur.execute(
+            'INSERT INTO groups (id, name, schedule_type, schedule_time) VALUES (%s,%s,%s,%s)',
+            (gid, name, schedule_type, schedule_time)
+        )
+        
+        from datetime import date as dt, timedelta as td
+        start_date = dt.today()
+        end_date = start_date + td(days=90)
+        
+        sid = uid()
+        cur.execute(
+            'INSERT INTO schedules (id, group_id, subject_name, start_date, end_date) VALUES (%s,%s,%s,%s,%s)',
+            (sid, gid, name, start_date.isoformat(), end_date.isoformat())
+        )
+        
+        cur_date = start_date
+        while cur_date <= end_date:
+            include = False
+            if schedule_type == 'har_kuni':
+                include = True
+            elif schedule_type == 'juft':
+                if cur_date.day % 2 == 0:
+                    include = True
+            elif schedule_type == 'toq':
+                if cur_date.day % 2 == 1:
+                    include = True
+            
+            if include:
+                cur.execute(
+                    'INSERT INTO schedule_entries (id, schedule_id, date) VALUES (%s,%s,%s)',
+                    (uid(), sid, cur_date.isoformat())
+                )
+            cur_date += td(days=1)
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'id': gid})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -730,12 +792,11 @@ def admin_students(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id, login, full_name, phone, email, group_name, created_at, is_active FROM students')
+        cur.execute('SELECT id, login, full_name, phone, email, group_name, created_at, is_active, total_score FROM students')
         students_list = []
         for row in cur.fetchall():
             students_list.append({
@@ -746,7 +807,8 @@ def admin_students(tok):
                 'email': row[4],
                 'group_name': row[5],
                 'created_at': row[6],
-                'is_active': row[7]
+                'is_active': row[7],
+                'total_score': row[8] if len(row) > 8 else 0
             })
         cur.close()
         conn.close()
@@ -760,7 +822,6 @@ def admin_calendar_add(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'admin':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -777,7 +838,6 @@ def admin_calendar_add(tok):
         return jsonify({'success': True, 'id': eid})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 # ============= MENTOR ENDPOINTS =============
 @app.route('/api/mentor/profile', methods=['GET', 'OPTIONS'])
 @token_required
@@ -785,7 +845,6 @@ def mentor_profile(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -819,7 +878,6 @@ def mentor_groups(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -840,7 +898,9 @@ def mentor_groups(tok):
                     'mentor_id': g[2],
                     'created_at': g[3],
                     'is_active': g[4],
-                    'students_count': cnt
+                    'students_count': cnt,
+                    'schedule_type': g[5] if len(g) > 5 else 'juft',
+                    'schedule_time': g[6] if len(g) > 6 else '19:00'
                 })
         cur.close()
         conn.close()
@@ -854,7 +914,6 @@ def mentor_group_students(tok, gid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM groups WHERE id=%s', (gid,))
@@ -863,7 +922,7 @@ def mentor_group_students(tok, gid):
             cur.close()
             conn.close()
             return jsonify({'error': 'Guruh topilmadi'}), 404
-        cur.execute('SELECT id, login, full_name, phone, email, created_at FROM students WHERE group_name=%s', (g[1],))
+        cur.execute('SELECT id, login, full_name, phone, email, created_at, total_score FROM students WHERE group_name=%s', (g[1],))
         students_list = []
         for row in cur.fetchall():
             students_list.append({
@@ -872,11 +931,40 @@ def mentor_group_students(tok, gid):
                 'full_name': row[2],
                 'phone': row[3],
                 'email': row[4],
-                'created_at': row[5]
+                'created_at': row[5],
+                'total_score': row[6] if len(row) > 6 else 0
             })
         cur.close()
         conn.close()
         return jsonify(students_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mentor/groups/<gid>/students/<sid>/remove', methods=['DELETE', 'OPTIONS'])
+@token_required
+def remove_student_from_group(tok, gid, sid):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        if tok['role'] != 'mentor':
+            return jsonify({'error': "Ruxsat yo'q"}), 403
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute('SELECT * FROM groups WHERE id=%s', (gid,))
+        group = cur.fetchone()
+        if not group:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Guruh topilmadi'}), 404
+        
+        cur.execute('UPDATE students SET group_name = NULL WHERE id=%s', (sid,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -887,17 +975,23 @@ def create_task(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
         tid = uid()
         conn = get_db()
         cur = conn.cursor()
+        
+        schedule_entry_id = d.get('schedule_entry_id', None)
+        
         cur.execute(
-            'INSERT INTO tasks (id, group_id, mentor_id, title, description, deadline_date, deadline_time, task_type, duration_minutes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-            (tid, d['group_id'], tok['id'], d['title'], d['description'], d['deadline_date'], d['deadline_time'], d.get('task_type', 'homework'), d.get('duration_minutes'))
+            'INSERT INTO tasks (id, group_id, mentor_id, title, description, deadline_date, deadline_time, task_type, duration_minutes, schedule_entry_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+            (tid, d['group_id'], tok['id'], d['title'], d['description'], d['deadline_date'], d['deadline_time'], d.get('task_type', 'homework'), d.get('duration_minutes'), schedule_entry_id)
         )
+        
+        if schedule_entry_id:
+            cur.execute('UPDATE schedule_entries SET has_task=1, task_id=%s WHERE id=%s', (tid, schedule_entry_id))
+        
         conn.commit()
         cur.close()
         conn.close()
@@ -911,7 +1005,6 @@ def get_tasks(tok, gid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM tasks WHERE group_id=%s ORDER BY created_at DESC', (gid,))
@@ -927,7 +1020,8 @@ def get_tasks(tok, gid):
                 'deadline_time': row[6],
                 'task_type': row[7],
                 'duration_minutes': row[8],
-                'created_at': row[9]
+                'created_at': row[9],
+                'schedule_entry_id': row[10] if len(row) > 10 else None
             })
         cur.close()
         conn.close()
@@ -941,7 +1035,6 @@ def get_submissions(tok, tid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('''
@@ -960,8 +1053,9 @@ def get_submissions(tok, tid):
                 'submitted_at': row[4],
                 'ai_feedback': row[5],
                 'mentor_score': row[6],
-                'full_name': row[7],
-                'login': row[8]
+                'status': row[7] if len(row) > 7 else 'pending',
+                'full_name': row[8] if len(row) > 8 else None,
+                'login': row[9] if len(row) > 9 else None
             })
         cur.close()
         conn.close()
@@ -976,12 +1070,11 @@ def student_profile(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id, login, full_name, phone, email, group_name, created_at FROM students WHERE id=%s', (tok['id'],))
+        cur.execute('SELECT id, login, full_name, phone, email, group_name, created_at, total_score FROM students WHERE id=%s', (tok['id'],))
         s = cur.fetchone()
         cur.close()
         conn.close()
@@ -994,7 +1087,8 @@ def student_profile(tok):
             'phone': s[3],
             'email': s[4],
             'group_name': s[5],
-            'created_at': s[6]
+            'created_at': s[6],
+            'total_score': s[7] if len(s) > 7 else 0
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1005,7 +1099,6 @@ def change_password(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -1032,7 +1125,6 @@ def student_group(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -1054,7 +1146,9 @@ def student_group(tok):
             'name': g[1],
             'mentor_id': g[2],
             'created_at': g[3],
-            'is_active': g[4]
+            'is_active': g[4],
+            'schedule_type': g[5] if len(g) > 5 else 'juft',
+            'schedule_time': g[6] if len(g) > 6 else '19:00'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1065,7 +1159,6 @@ def student_tasks(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         conn = get_db()
@@ -1095,7 +1188,8 @@ def student_tasks(tok):
                 'deadline_time': row[6],
                 'task_type': row[7],
                 'duration_minutes': row[8],
-                'created_at': row[9]
+                'created_at': row[9],
+                'schedule_entry_id': row[10] if len(row) > 10 else None
             })
         for t in tasks_list:
             cur.execute('SELECT * FROM submissions WHERE task_id=%s AND student_id=%s', (t['id'], tok['id']))
@@ -1109,7 +1203,8 @@ def student_tasks(tok):
                     'content': sub[3],
                     'submitted_at': sub[4],
                     'ai_feedback': sub[5],
-                    'mentor_score': sub[6]
+                    'mentor_score': sub[6],
+                    'status': sub[7] if len(sub) > 7 else 'pending'
                 }
         cur.close()
         conn.close()
@@ -1123,7 +1218,6 @@ def student_submit_task(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'student':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
@@ -1148,11 +1242,11 @@ def student_submit_task(tok):
         cur.execute('SELECT id FROM submissions WHERE task_id=%s AND student_id=%s', (tid, tok['id']))
         ex = cur.fetchone()
         if ex:
-            cur.execute('UPDATE submissions SET content=%s, submitted_at=CURRENT_TIMESTAMP WHERE id=%s', (content, ex[0]))
+            cur.execute('UPDATE submissions SET content=%s, submitted_at=CURRENT_TIMESTAMP, status=%s WHERE id=%s', (content, 'submitted', ex[0]))
             sid = ex[0]
         else:
             sid = uid()
-            cur.execute('INSERT INTO submissions (id, task_id, student_id, content) VALUES (%s,%s,%s,%s)', (sid, tid, tok['id'], content))
+            cur.execute('INSERT INTO submissions (id, task_id, student_id, content, status) VALUES (%s,%s,%s,%s,%s)', (sid, tid, tok['id'], content, 'submitted'))
         
         conn.commit()
         cur.close()
@@ -1167,13 +1261,20 @@ def score_submission(tok, sid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         d = request.json or {}
+        score = d.get('score')
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('UPDATE submissions SET mentor_score=%s, ai_feedback=%s WHERE id=%s', (d.get('score'), d.get('feedback', ''), sid))
+        
+        cur.execute('SELECT student_id, mentor_score FROM submissions WHERE id=%s', (sid,))
+        sub = cur.fetchone()
+        
+        if sub and sub[1] is None and score:
+            cur.execute('UPDATE students SET total_score = total_score + %s WHERE id=%s', (score, sub[0]))
+        
+        cur.execute('UPDATE submissions SET mentor_score=%s WHERE id=%s', (score, sid))
         conn.commit()
         cur.close()
         conn.close()
@@ -1188,7 +1289,6 @@ def chat(tok, gid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         
@@ -1237,7 +1337,6 @@ def get_schedules(tok, gid):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM schedules WHERE group_id=%s', (gid,))
@@ -1258,7 +1357,9 @@ def get_schedules(tok, gid):
                     'id': e[0],
                     'schedule_id': e[1],
                     'date': e[2],
-                    'topic': e[3]
+                    'topic': e[3],
+                    'has_task': e[4] if len(e) > 4 else 0,
+                    'task_id': e[5] if len(e) > 5 else None
                 })
             schedules_list.append(s)
         cur.close()
@@ -1273,7 +1374,6 @@ def create_schedule(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         if tok['role'] != 'mentor':
             return jsonify({'error': "Ruxsat yo'q"}), 403
         from datetime import date as dt, timedelta as td
@@ -1298,6 +1398,76 @@ def create_schedule(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/schedule-entries/<eid>', methods=['PUT', 'OPTIONS'])
+@token_required
+def update_schedule_entry(tok, eid):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        if tok['role'] != 'mentor':
+            return jsonify({'error': "Ruxsat yo'q"}), 403
+        d = request.json or {}
+        topic = d.get('topic', '')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE schedule_entries SET topic=%s WHERE id=%s', (topic, eid))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/schedule-entries/<eid>/add-task', methods=['POST', 'OPTIONS'])
+@token_required
+def add_task_to_schedule(tok, eid):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        if tok['role'] != 'mentor':
+            return jsonify({'error': "Ruxsat yo'q"}), 403
+        d = request.json or {}
+        title = d.get('title', '')
+        description = d.get('description', '')
+        deadline_date = d.get('deadline_date', '')
+        deadline_time = d.get('deadline_time', '23:00')
+        
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT schedule_id, date FROM schedule_entries WHERE id=%s', (eid,))
+        entry = cur.fetchone()
+        
+        if not entry:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Jadval topilmadi'}), 404
+        
+        cur.execute('SELECT group_id FROM schedules WHERE id=%s', (entry[0],))
+        schedule = cur.fetchone()
+        
+        if not schedule:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Jadval topilmadi'}), 404
+        
+        group_id = schedule[0]
+        
+        tid = uid()
+        cur.execute(
+            'INSERT INTO tasks (id, group_id, mentor_id, title, description, deadline_date, deadline_time, task_type, schedule_entry_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+            (tid, group_id, tok['id'], title, description, deadline_date, deadline_time, 'homework', eid)
+        )
+        
+        cur.execute('UPDATE schedule_entries SET has_task=1, task_id=%s WHERE id=%s', (tid, eid))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'task_id': tid})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ============= CALENDAR ENDPOINTS =============
 @app.route('/api/calendar', methods=['GET', 'OPTIONS'])
 @token_required
@@ -1305,7 +1475,6 @@ def get_calendar(tok):
     try:
         if request.method == 'OPTIONS':
             return jsonify({}), 200
-            
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT * FROM calendar_events ORDER BY event_date')
@@ -1327,20 +1496,61 @@ def get_calendar(tok):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ============= AI REVIEW ENDPOINT (Gemini) =============
-# ============= AI REVIEW ENDPOINT (Gemini) =============
+# ============= LEADERBOARD ENDPOINTS =============
+@app.route('/api/groups/<gid>/leaderboard', methods=['GET', 'OPTIONS'])
+@token_required
+def get_leaderboard(tok, gid):
+    try:
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute('SELECT name FROM groups WHERE id=%s', (gid,))
+        group = cur.fetchone()
+        if not group:
+            cur.close()
+            conn.close()
+            return jsonify({'error': 'Guruh topilmadi'}), 404
+        
+        group_name = group[0]
+        
+        cur.execute('''
+            SELECT id, full_name, login, total_score 
+            FROM students 
+            WHERE group_name=%s 
+            ORDER BY total_score DESC
+        ''', (group_name,))
+        
+        leaderboard = []
+        rank = 1
+        for row in cur.fetchall():
+            leaderboard.append({
+                'rank': rank,
+                'id': row[0],
+                'full_name': row[1],
+                'login': row[2],
+                'total_score': row[3]
+            })
+            rank += 1
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({'group_name': group_name, 'leaderboard': leaderboard})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============= AI REVIEW ENDPOINT =============
 @app.route('/api/ai-review', methods=['POST', 'OPTIONS'])
 def ai_review_route():
-    # OPTIONS so'rovlari - CORS preflight
     if request.method == 'OPTIONS':
         response = jsonify({})
         response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Max-Age'] = '86400'
         return response, 200
     
-    # POST so'rovlari - token tekshirish
     auth_header = request.headers.get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip()
     
@@ -1366,12 +1576,9 @@ def handle_ai_review(tok):
         sub_id = data.get('submission_id', '')
         title = data.get('task_title', 'Vazifa')
         
-        # Gemini API key
         gemini_key = os.environ.get('GEMINI_API_KEY', '')
         
-        # Agar API key bo'lmasa, oddiy baholash
         if not gemini_key:
-            # Kodni tahlil qilish (API'siz)
             code_length = len(code)
             code_lines = len(code.split('\n'))
             
@@ -1416,9 +1623,7 @@ def handle_ai_review(tok):
 - Xatoliklarni tekshiring
 
 📝 **Xulosa:** {feedback}"""
-            
         else:
-            # Gemini API orqali baholash
             try:
                 prompt = f"""Sen IT Park AI tekshiruvchisisiz.
 Vazifa: {title}
@@ -1433,13 +1638,8 @@ O'zbek tilida:
 
 Qisqa va aniq yoz."""
                 
-                payload = {
-                    "contents": [{
-                        "parts": [{"text": prompt}]
-                    }]
-                }
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 
-                # To'g'ri model va URL
                 response = requests.post(
                     f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_key}',
                     json=payload,
@@ -1450,7 +1650,6 @@ Qisqa va aniq yoz."""
                     result = response.json()
                     fb = result['candidates'][0]['content']['parts'][0]['text']
                 else:
-                    # Agar 1.5-pro ishlamasa, 1.0-pro ni sinab ko'rish
                     response2 = requests.post(
                         f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key={gemini_key}',
                         json=payload,
@@ -1460,7 +1659,6 @@ Qisqa va aniq yoz."""
                         result = response2.json()
                         fb = result['candidates'][0]['content']['parts'][0]['text']
                     else:
-                        # API ishlamasa, oddiy baholash
                         code_length = len(code)
                         if code_length < 10:
                             fb = "Javob juda qisqa. Vazifani to'liq yozing. Baho: 20/100"
@@ -1470,10 +1668,8 @@ Qisqa va aniq yoz."""
                             fb = "Yaxshi javob, biroz takomillashtirish mumkin. Baho: 70/100"
                         else:
                             fb = "A'lo darajada bajarilgan! Baho: 85/100"
-                    
             except Exception as e:
                 print(f"Gemini API error: {e}")
-                # API xato bo'lsa, oddiy baholash
                 code_length = len(code)
                 if code_length < 10:
                     fb = "Javob juda qisqa. Vazifani to'liq yozing. Baho: 20/100"
@@ -1484,7 +1680,6 @@ Qisqa va aniq yoz."""
                 else:
                     fb = "A'lo darajada bajarilgan! Baho: 85/100"
         
-        # Database ga saqlash
         try:
             conn = get_db()
             cur = conn.cursor()
@@ -1502,11 +1697,11 @@ Qisqa va aniq yoz."""
     except Exception as e:
         print(f"AI Review error: {e}")
         traceback.print_exc()
-        # Xatolik bo'lsa ham oddiy javob qaytarish
         fb = f"Tahlil qilishda xatolik: {str(e)[:100]}"
         response = jsonify({'feedback': fb})
         response.headers['Access-Control-Allow-Origin'] = 'https://ustozyordamchiai.vercel.app'
         return response, 200
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
